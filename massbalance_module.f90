@@ -4,6 +4,127 @@ MODULE massbalance_module
 
 CONTAINS
 
+  SUBROUTINE pdd_model_greenland_total(nx, ny, acc, t2m, t2j, smb)
+    ! Positive degree day model, uddated by Heiko Goelzer, Feb 2022
+    ! Implements Greenland pdd model of Huybrechts and De Wolde 1999
+    ! Forcing with total fields, not anomalies
+
+    IMPLICIT NONE
+
+    INTEGER, PARAMETER :: dp = KIND(1.0D0)  ! Kind of double precision numbers.
+    REAL, PARAMETER :: triple_point_of_water = 273.16_dp
+
+    REAL, PARAMETER ::  pi = 2.0_dp * ACOS(0.0_dp)
+
+    ! --------------------------------------------------------------------------
+    ! Declaration of global variables
+    ! --------------------------------------------------------------------------
+
+    ! Input variables: 
+    INTEGER, INTENT(IN)  :: nx, ny ! grid size
+
+    REAL(dp), INTENT(IN)  :: acc(ny,nx)    ! total yearly accumulation (m/yr)
+    REAL(dp), INTENT(IN)  :: t2m(ny,nx)    ! annual mean 2m temperature (deg)
+    REAL(dp), INTENT(IN)  :: t2j(ny,nx)    ! july 2m temperature (deg)
+
+    ! Output variables: 
+    REAL(dp), INTENT(OUT) :: smb(ny,nx)        ! surface mass balance (m/yr)
+
+    ! Local variables
+    REAL(dp), allocatable               :: tma(:,:)
+    REAL(dp), allocatable               :: tmj(:,:)
+    REAL(dp), allocatable               :: snow(:,:)
+    REAL(dp), allocatable               :: rain(:,:)
+    REAL(dp), allocatable               :: sir(:,:)
+    REAL(dp), allocatable               :: abl(:,:)           ! runoff (m/yr)
+    REAL(dp), allocatable               :: pdd(:,:)
+    REAL(dp), allocatable               :: rfr(:,:)
+    REAL(dp), allocatable               :: s_prec(:,:)
+    REAL(dp), allocatable               :: h_inv(:,:)
+
+    REAL(dp), PARAMETER                 :: ddfactorsnow = 0.003
+    REAL(dp), PARAMETER                 :: ddfactorice = 0.008
+    REAL(dp), PARAMETER                 :: pmax = 0.3 ! See update in Janssens and Huybrechts 2000
+ 
+    INTEGER                             :: i, j
+    REAL(dp)                            :: pdds, ablv, sifm
+
+    ! Allocate arrays
+    allocate(tma(ny,nx))
+    allocate(tmj(ny,nx))
+    allocate(snow(ny,nx))
+    allocate(rain(ny,nx))
+    allocate(sir(ny,nx))
+    allocate(abl(ny,nx))
+    allocate(pdd(ny,nx))
+    allocate(rfr(ny,nx))
+    allocate(s_prec(ny,nx))
+    allocate(h_inv(ny,nx))
+
+    ! Global temperature perturbation
+    tma = t2m - 273.15
+
+    ! Summer temperature
+    tmj = t2j - 273.15
+
+    ! Determine number of positive degree days per year and rain fraction
+    call calculate_pdd_monthly(nx, ny, tma, tmj, pdd, rfr)
+
+    ! Distinguish rain and snow according to rain fraction
+    rain = acc * rfr
+    snow = acc - rain
+
+    ! Melt calculation
+    DO j=1,ny
+      DO i=1,nx
+
+        ! pdd needed for snow melting
+        pdds = snow(j,i)/ddfactorsnow
+        ! potential for refreezing 
+        sifm = pmax*snow(j,i)
+        ! limit potential by total precipitation (acc)
+        IF(sifm.GT.acc(j,i)) sifm=acc(j,i)
+
+        ! Estimate available melt 
+        IF(pdds.LE.pdd(j,i)) THEN
+         ! Remainig energy (pdd) used for ice melt
+         ablv = (pdd(j,i)-pdds)*ddfactorice+snow(j,i)
+        ELSE
+         ! All energy (pdd) used for snow melt
+         ablv = pdd(j,i)*ddfactorsnow
+        ENDIF
+
+        ! Calculate refreezing
+        IF(ablv.GT.acc(j,i)+sifm) THEN
+         ! entire snowpack melted, no refreezing
+         sir(j,i) = 0.
+        ELSEIF(ablv.GT.acc(j,i)) THEN
+         sir(j,i) = acc(j,i)+sifm-ablv
+        ELSEIF(ablv.GT.sifm) THEN
+         sir(j,i) = sifm
+        ELSE
+         sir(j,i) = ablv
+        ENDIF
+        abl(j,i) = ablv - sifm
+        ! Sanity check
+        IF(abl(j,i).lt.0) abl(j,i)=0
+
+      END DO
+    END DO
+
+    ! no melt where insuffient energy
+    WHERE (pdd.LE.0) 
+     sir = 0
+     abl = 0
+    END WHERE
+
+    ! smb = snow - abl
+    smb = acc - abl - rain
+
+  END SUBROUTINE pdd_model_greenland_total
+
+
+
   SUBROUTINE massbalance_pdd_model_greenland(nx, ny, lat, Hs, acc_PD, T_anomaly, smb)
     ! Positive degree day model, added by Heiko Goelzer, Jan 2017
     ! Implements Greenland pdd model of Huybrechts and De Wolde 1999

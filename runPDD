@@ -14,11 +14,11 @@ set -o errexit # Make bash exit on any error
 set -o nounset # Treat unset variables as errors
 
 module purge
-netCDF-Fortran/4.5.2-gompi-2020a
+module load netCDF-Fortran/4.5.2-gompi-2020a
 module list  
 
 # run 
-time srun /gpdd.x 
+time srun ./gpdd.x 
 
 # Finish the script
 exit 0
