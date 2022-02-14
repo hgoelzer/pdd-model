@@ -14,7 +14,7 @@ program gpdd
     character(len=:), allocatable :: filename, pathname
 
     integer :: nx, ny, nt 
-    integer :: i, j, t
+    integer :: i, j, t, year
     integer :: ndims
 
     ! dimensions
@@ -23,6 +23,8 @@ program gpdd
     ! input 
     double precision,   allocatable :: lat(:,:)
     double precision,   allocatable :: orog(:,:)
+    double precision,   allocatable :: T_avg(:,:)
+    double precision,   allocatable :: T_avg_in(:,:,:)
 
     ! forcing
     real,               allocatable :: t2m(:,:,:)
@@ -32,7 +34,6 @@ program gpdd
     double precision,   allocatable :: acc(:,:)
     double precision,   allocatable :: T_anomaly(:,:)
     double precision,   allocatable :: smb(:,:)
-    double precision,   allocatable :: T_avg(:,:)
 
     ! output
     double precision,   allocatable :: acc3(:,:,:)
@@ -45,7 +46,7 @@ program gpdd
     pathname = "./data"
     
     ! Reading orog as base for dimensions 
-    filename = pathname // "/" // "orog_e16000.nc"
+    filename = pathname // "/" // "orog_carra.nc"
     write(*,*)
     write(*,*) "### File orog: ", filename
     ndims = nc_ndims(filename,"orog")
@@ -59,7 +60,7 @@ program gpdd
     ! Define array sizes 
     nx = dimlens(1)
     ny = dimlens(2)
-    nt = 10
+    nt = 30
 
     ! Allocate dimensions
     allocate(x(nx),y(ny),time(nt))
@@ -67,15 +68,15 @@ program gpdd
     ! Allocate arrays
     allocate(lat(nx,ny))
     allocate(orog(nx,ny))
+    allocate(T_avg(nx,ny))
+    allocate(T_avg_in(nx,ny,1))
 
-    allocate(t2m(nx,ny,nt))
-    !allocate(tp(nx,ny,nt))
+    allocate(t2m(nx,ny,1))
     allocate(tp(nx,ny,1))
 
     allocate(T_anomaly(nx,ny))
     allocate(smb(nx,ny))
     allocate(acc(nx,ny))
-    allocate(T_avg(nx,ny))
 
     allocate(T_anomaly3(nx,ny,nt))
     allocate(smb3(nx,ny,nt))
@@ -87,64 +88,67 @@ program gpdd
 
 
     ! Reading lat
-    filename = pathname // "/" // "lat_lon_16km.nc"
+    filename = pathname // "/" // "lat_lon_carra.nc"
     write(*,*)
     write(*,*) "### File lat: ", filename
-    ndims = nc_ndims(filename,"lat")
-    call nc_dims(filename,"lat",dimnames,dimlens)
+    ndims = nc_ndims(filename,"latitude")
+    call nc_dims(filename,"latitude",dimnames,dimlens)
     write(*,*) "ndims= ", ndims
     write(*,*) "dimnames= ", dimnames
     write(*,*) "dimlens=  ", dimlens 
-    call nc_read(filename, "lat",lat)
+    call nc_read(filename, "latitude",lat)
 
-    ! Read forcing files 
-    filename = pathname // "/" // "t2m_CARRA-yearly_e16000.nc"
+    ! Reading reference T
+    filename = pathname // "/" // "t2m_ltm_CARRA-yearly.nc"
     write(*,*)
-    write(*,*) "### File t2m: ", filename
-    !call nc_read_attr(filename, "institution", testchar)
-    !write(*,*) "Institution: ", trim(testchar)
-    call nc_read(filename, "time",time)
-    write(*,"(a10,100f12.1)") "time: ", time 
+    write(*,*) "### File Tave: ", filename
     ndims = nc_ndims(filename,"t2m")
     call nc_dims(filename,"t2m",dimnames,dimlens)
     write(*,*) "ndims= ", ndims
     write(*,*) "dimnames= ", dimnames
     write(*,*) "dimlens=  ", dimlens 
-    call nc_read(filename, "t2m",t2m)
-    !write(*,"(a10,100f12.1)") "t2m: ", t2m 
-
-    ! Reading precip
-    filename = pathname // "/" // "tp_CARRA-yearly-1991.nc_e16000.nc"
-    write(*,*)
-    write(*,*) "### File tp: ", filename
-    ndims = nc_ndims(filename,"tp")
-    call nc_dims(filename,"tp",dimnames,dimlens)
-    write(*,*) "ndims= ", ndims
-    write(*,*) "dimnames= ", dimnames
-    write(*,*) "dimlens=  ", dimlens 
-    call nc_read(filename, "tp",tp)
-
-
-    ! Calculate long-term average t2m 
-    T_avg = SUM(t2m(:,:,:),DIM=3)/nt
-
+    call nc_read(filename, "t2m",T_avg_in)
+    T_avg = T_avg_in(:,:,1)
 
     ! Main loop
     t = 1
     DO WHILE(t <= nt)
 
-       write(*,*) "Time counter ", t, nt
+       year = t+1990
+       write(*,*) "Time counter ", t, year, nt
 
-       ! construct filename
-       write (filename, "(A8,I0.4,A3)") "forcing-", t, ".nc"
-       write(*,*) trim(filename)
+       ! construct t2m filename
+       write (filename, "(A17,I0.4,A3)") "t2m_CARRA-yearly-", year, ".nc"
+       filename = pathname // "/" // trim(filename)
+       write(*,*) "### File t2m: ", filename
+       !call nc_read(filename, "time",time)
+       !write(*,"(a10,100f12.1)") "time: ", time 
+       ndims = nc_ndims(filename,"t2m")
+       call nc_dims(filename,"t2m",dimnames,dimlens)
+       write(*,*) "ndims= ", ndims
+       write(*,*) "dimnames= ", dimnames
+       write(*,*) "dimlens=  ", dimlens 
+       call nc_read(filename, "t2m",t2m)
+
+       ! construct t2m filename
+       write (filename, "(A16,I0.4,A3)") "tp_CARRA-yearly-", year, ".nc"
+       filename = pathname // "/" // trim(filename)
+       write(*,*) "### File tp: ", filename
+       !call nc_read(filename, "time",time)
+       !write(*,"(a10,100f12.1)") "time: ", time 
+       ndims = nc_ndims(filename,"tp")
+       call nc_dims(filename,"tp",dimnames,dimlens)
+       write(*,*) "ndims= ", ndims
+       write(*,*) "dimnames= ", dimnames
+       write(*,*) "dimlens=  ", dimlens 
+       call nc_read(filename, "tp",tp)
+
 
        ! temperature forcing
-       T_anomaly = t2m(:,:,t)-T_avg(:,:)
+       T_anomaly = t2m(:,:,1)-T_avg(:,:)
        
        ! Precip forcing; convert from kg/m2/yr = mm/yr w.e. to m/yr i.e.
        acc = tp(:,:,1)/1000.*rhof/rhoi
-       !acc = tp(:,:,t)/1000.*rhof/rhoi
 
        ! Model call
        call massbalance_pdd_model_greenland(nx,ny,lat,orog,acc,T_anomaly,smb)
