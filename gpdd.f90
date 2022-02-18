@@ -16,6 +16,7 @@ program gpdd
     integer :: nx, ny, nt 
     integer :: i, j, t, year
     integer :: ndims
+    integer :: ncid
 
     ! dimensions
     double precision,   allocatable :: x(:), y(:), time(:) 
@@ -41,8 +42,8 @@ program gpdd
     pathname = "./data"
     
     ! Define array sizes 
-    nx = 1069
-    ny = 1269
+    nx = 1681
+    ny = 2881
     nt = 30
 
     ! Allocate dimensions
@@ -71,7 +72,7 @@ program gpdd
 
        ! construct t2m filename
        write(*,*) "construct t2m filename"
-       write (filename, "(A17,I0.4,A3)") "t2m_CARRA-yearly-", year, ".nc"
+       write (filename, "(A17,I0.4,A10)") "t2m_CARRA-yearly-", year, "_e01000.nc"
        write(*,*) "construct t2m filename end"
        filename = trim(pathname) // "/" // trim(filename)
        write(*,*) "### File t2m: ", filename
@@ -82,10 +83,12 @@ program gpdd
        write(*,*) "ndims= ", ndims
        write(*,*) "dimnames= ", dimnames
        write(*,*) "dimlens=  ", dimlens 
-       call nc_read(filename, "t2m",t2m)
+       call nc_open(filename, ncid, .FALSE.)
+       call nc_read(filename, "t2m",t2m, ncid=ncid)
+       call nc_close(ncid)
 
        ! construct t2j filename
-       write (filename, "(A21,I0.4,A3)") "t2m_CARRA-monthly-07-", year, ".nc"
+       write (filename, "(A21,I0.4,A10)") "t2m_CARRA-monthly-07-", year, "_e01000.nc"
        filename = trim(pathname) // "/" // trim(filename)
        write(*,*) "### File t2j: ", filename
        !call nc_read(filename, "time",time)
@@ -95,10 +98,12 @@ program gpdd
        write(*,*) "ndims= ", ndims
        write(*,*) "dimnames= ", dimnames
        write(*,*) "dimlens=  ", dimlens 
+       call nc_open(filename, ncid, .FALSE.)
        call nc_read(filename, "t2m",t2j)
+       call nc_close(ncid)
 
        ! construct t2m filename
-       write (filename, "(A16,I0.4,A3)") "tp_CARRA-yearly-", year, ".nc"
+       write (filename, "(A16,I0.4,A10)") "tp_CARRA-yearly-", year, "_e01000.nc"
        filename = trim(pathname) // "/" // trim(filename)
        write(*,*) "### File tp: ", filename
        !call nc_read(filename, "time",time)
@@ -108,7 +113,9 @@ program gpdd
        write(*,*) "ndims= ", ndims
        write(*,*) "dimnames= ", dimnames
        write(*,*) "dimlens=  ", dimlens 
+       call nc_open(filename, ncid, .FALSE.)
        call nc_read(filename, "tp",tp)
+       call nc_close(ncid)
 
        ! Precip forcing; convert from kg/m2/yr = mm/yr w.e. to m/yr i.e.
        acc = tp(:,:,1)/1000.*rhof/rhoi
