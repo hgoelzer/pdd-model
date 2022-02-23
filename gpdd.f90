@@ -135,6 +135,10 @@ program gpdd
     END DO ! end main loop
 
 
+    ! convert SMB terms back to mm w.e/yr
+    smb3(:,:,:) = smb3(:,:,:) * rhoi 
+    acc3(:,:,:) = acc3(:,:,:) * rhoi 
+
     ! Writing output file 
     filename = "smb_gpdd.nc"
 

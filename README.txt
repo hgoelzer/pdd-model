@@ -15,3 +15,6 @@ make gpdd
 
 # Run
 sbatch runPDD
+
+# cut out 1991-2018 for MAR comparison
+ncks -F -v smb -d time,1,28 smb_gpdd.nc smb_CARRAPDD_1991-2018.nc
