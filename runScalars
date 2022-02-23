@@ -1,0 +1,27 @@
+#!/bin/bash
+#SBATCH --job-name=gpdd
+# KeyCLIM: nn9252k; INES: nn9560k; GREASE: nn8006k
+#SBATCH --account=nn8006k
+#SBATCH --time=03:00:00
+#SBATCH --mem-per-cpu=4G
+ ##SBATCH --qos=devel
+#SBATCH --ntasks=1
+
+## Setting variables and prepare runtime environment:
+##----------------------------------------------------
+## Recommended safety settings:
+set -o errexit # Make bash exit on any error
+set -o nounset # Treat unset variables as errors
+
+module purge
+module --quiet purge
+module --quiet load NCO/4.9.7-foss-2020a
+module --quiet load CDO/1.9.10-gompi-2020a
+module --quiet load ncview/2.1.8-gompi-2020a
+module list  
+
+# run 
+time srun ./scalars_basin.sh 
+
+# Finish the script
+exit 0
