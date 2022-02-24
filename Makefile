@@ -18,6 +18,7 @@ usage:
 	@echo "    * USAGE * "
 	@echo ""
 	@echo " make gpdd       : compiles the gpdd program gpdd.x"
+	@echo " make gpdd_monthly : compiles the gpdd program gpdd_monthly.x"
 	@echo " make clean      : cleans object and executable files"
 	@echo ""
 
@@ -59,6 +60,12 @@ gpdd: $(objdir)/ncio.o $(objdir)/massbalance_module.o
 	@echo "    gpdd.x is ready."
 	@echo " "
 
+gpdd_monthly: $(objdir)/ncio.o $(objdir)/massbalance_module.o
+	$(FC) $(DFLAGS) $(FLAGS) -o gpdd_monthly.x $^ gpdd_monthly.f90 $(LFLAGS)
+	@echo " "
+	@echo "    gpdd_monthly.x is ready."
+	@echo " "
+
 clean:
-	rm -f gpdd.x $(objdir)/*.o $(objdir)/*.mod $(objdir)/$(libname)
+	rm -f gpdd.x gpdd_monthly.x $(objdir)/*.o $(objdir)/*.mod $(objdir)/$(libname)
 

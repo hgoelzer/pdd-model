@@ -1,5 +1,5 @@
 program gpdd
-! pdd model for greenland
+! pdd model for greenland with monthly input
 
     use ncio 
     use massbalance_module
@@ -14,7 +14,7 @@ program gpdd
     character(len=256) :: filename, pathname
 
     integer :: nx, ny, nt 
-    integer :: i, j, t, year
+    integer :: i, j, t, year, m
     integer :: ndims
     integer :: ncid
 
@@ -22,13 +22,16 @@ program gpdd
     double precision,   allocatable :: x(:), y(:), time(:) 
 
     ! forcing
-    double precision,   allocatable :: t2m(:,:,:)
-    double precision,   allocatable :: t2j(:,:,:)
-    double precision,   allocatable :: tp(:,:,:)
+    double precision,   allocatable :: t2m_in(:,:,:)
+    double precision,   allocatable :: tp_in(:,:,:)
+
+    double precision,   allocatable :: t2m(:,:,:) ! monthly
+    double precision,   allocatable :: tp(:,:,:) ! monthly
 
     ! variables 
-    double precision,   allocatable :: tpa(:,:)
-    double precision,   allocatable :: smb(:,:)
+    double precision,   allocatable :: tma(:,:) ! annual
+    double precision,   allocatable :: tpa(:,:) ! annual
+    double precision,   allocatable :: smb(:,:) ! annual
 
     double precision,   allocatable :: snow(:,:)
     double precision,   allocatable :: rain(:,:)
@@ -38,10 +41,9 @@ program gpdd
     double precision,   allocatable :: rfr(:,:)
 
     ! output
-    double precision,   allocatable :: tpa3(:,:,:)
-    double precision,   allocatable :: t2m3(:,:,:)
-    double precision,   allocatable :: t2j3(:,:,:)
-    double precision,   allocatable :: smb3(:,:,:)
+    double precision,   allocatable :: tma3(:,:,:) ! annual time series
+    double precision,   allocatable :: tpa3(:,:,:) ! annual time series
+    double precision,   allocatable :: smb3(:,:,:) ! annual time series
 
     double precision,   allocatable :: snow3(:,:,:)
     double precision,   allocatable :: rain3(:,:,:)
@@ -64,12 +66,16 @@ program gpdd
     allocate(x(nx),y(ny),time(nt))
 
     ! Allocate arrays
-    allocate(t2m(nx,ny,1))
-    allocate(t2j(nx,ny,1))
-    allocate(tp(nx,ny,1))
+    allocate(t2m_in(nx,ny,1))
+    allocate(tp_in(nx,ny,1))
 
-    allocate(smb(nx,ny))
+    allocate(t2m(nx,ny,12))
+    allocate(tp(nx,ny,12))
+
+    allocate(tma(nx,ny))
     allocate(tpa(nx,ny))
+    allocate(smb(nx,ny))
+
     allocate(snow(nx,ny))
     allocate(rain(nx,ny))
     allocate(sir(nx,ny))
@@ -77,10 +83,9 @@ program gpdd
     allocate(pdd(nx,ny))
     allocate(rfr(nx,ny))
 
-    allocate(smb3(nx,ny,nt))
-    allocate(t2m3(nx,ny,nt))
-    allocate(t2j3(nx,ny,nt))
+    allocate(tma3(nx,ny,nt))
     allocate(tpa3(nx,ny,nt))
+    allocate(smb3(nx,ny,nt))
 
     allocate(snow3(nx,ny,nt))
     allocate(rain3(nx,ny,nt))
@@ -89,7 +94,6 @@ program gpdd
     allocate(pdd3(nx,ny,nt))
     allocate(rfr3(nx,ny,nt))
 
-
     ! Main loop
     t = 1
     DO WHILE(t <= nt)
@@ -97,64 +101,58 @@ program gpdd
        year = t+1990
        write(*,*) "Time counter ", t, year, nt
 
-       ! construct t2m filename
-       write(*,*) "construct t2m filename"
-       write (filename, "(A17,I0.4,A10)") "t2m_CARRA-yearly-", year, "_e01000.nc"
-       write(*,*) "construct t2m filename end"
-       filename = trim(pathname) // "/" // trim(filename)
-       write(*,*) "### File t2m: ", filename
-       !call nc_read(filename, "time",time)
-       !write(*,"(a10,100f12.1)") "time: ", time 
-       ndims = nc_ndims(filename,"t2m")
-       call nc_dims(filename,"t2m",dimnames,dimlens)
-       write(*,*) "ndims= ", ndims
-       write(*,*) "dimnames= ", dimnames
-       write(*,*) "dimlens=  ", dimlens 
-       call nc_open(filename, ncid, .FALSE.)
-       call nc_read(filename, "t2m",t2m, ncid=ncid)
-       call nc_close(ncid)
+       m = 1
+       DO WHILE(m <= 12)
 
-       ! construct t2j filename
-       write (filename, "(A21,I0.4,A10)") "t2m_CARRA-monthly-07-", year, "_e01000.nc"
-       filename = trim(pathname) // "/" // trim(filename)
-       write(*,*) "### File t2j: ", filename
-       !call nc_read(filename, "time",time)
-       !write(*,"(a10,100f12.1)") "time: ", time 
-       ndims = nc_ndims(filename,"t2m")
-       call nc_dims(filename,"t2m",dimnames,dimlens)
-       write(*,*) "ndims= ", ndims
-       write(*,*) "dimnames= ", dimnames
-       write(*,*) "dimlens=  ", dimlens 
-       call nc_open(filename, ncid, .FALSE.)
-       call nc_read(filename, "t2m",t2j)
-       call nc_close(ncid)
+          ! construct t2m filename
+          write (filename, "(A18,I0.2,A1,I0.4,A10)") "t2m_CARRA-monthly-", m, "-", year, "_e01000.nc"
+          filename = trim(pathname) // "/" // trim(filename)
+          write(*,*) 
+          write(*,*) "### File t2m: ", filename
+          ndims = nc_ndims(filename,"t2m")
+          call nc_dims(filename,"t2m",dimnames,dimlens)
+          write(*,*) "ndims= ", ndims
+          !write(*,*) "dimnames= ", dimnames
+          write(*,*) "dimlens=  ", dimlens 
+          call nc_open(filename, ncid, .FALSE.)
+          call nc_read(filename, "t2m",t2m_in)
+          call nc_close(ncid)
+          t2m(:,:,m) = t2m_in(:,:,1)
 
-       ! construct t2m filename
-       write (filename, "(A16,I0.4,A10)") "tp_CARRA-yearly-", year, "_e01000.nc"
-       filename = trim(pathname) // "/" // trim(filename)
-       write(*,*) "### File tp: ", filename
-       !call nc_read(filename, "time",time)
-       !write(*,"(a10,100f12.1)") "time: ", time 
-       ndims = nc_ndims(filename,"tp")
-       call nc_dims(filename,"tp",dimnames,dimlens)
-       write(*,*) "ndims= ", ndims
-       write(*,*) "dimnames= ", dimnames
-       write(*,*) "dimlens=  ", dimlens 
-       call nc_open(filename, ncid, .FALSE.)
-       call nc_read(filename, "tp",tp)
-       call nc_close(ncid)
+          ! construct tp filename
+          write (filename, "(A17,I0.2,A1,I0.4,A10)") "tp_CARRA-monthly-", m, "-", year, "_e01000.nc"
+          filename = trim(pathname) // "/" // trim(filename)
+          write(*,*) 
+          write(*,*) "### File tp: ", filename
+          ndims = nc_ndims(filename,"tp")
+          call nc_dims(filename,"tp",dimnames,dimlens)
+          write(*,*) "ndims= ", ndims
+          !write(*,*) "dimnames= ", dimnames
+          write(*,*) "dimlens=  ", dimlens 
+          call nc_open(filename, ncid, .FALSE.)
+          call nc_read(filename, "tp",tp_in)
+          call nc_close(ncid)
+          tp(:,:,m) = tp_in(:,:,1)
+
+          ! update timer
+          m = m+1
+
+       END DO ! month loop
+
+       ! Annual diagnostics
+       tma = SUM(t2m(:,:,:),DIM=3)/12
+       tpa = SUM(tp(:,:,:),DIM=3)
 
        ! Precip forcing; convert from kg/m2/yr = mm/yr w.e. to m/yr i.e.
-       tpa = tp(:,:,1)/1000.*rhof/rhoi
+       tp(:,:,:) = tp(:,:,:)/1000.*rhof/rhoi
 
        ! Model call
-       !call pdd_model_greenland_total_yearly(nx, ny, tpa, t2m, t2j, smb)
-       call pdd_model_greenland_total_yearly(nx, ny, tpa, t2m, t2j, smb, snow, rain, sir, abl, pdd, rfr)
+       call pdd_model_greenland_total_monthly(nx, ny, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
+
        ! Update output container
-       smb3(:,:,t) = smb(:,:)
+       tma3(:,:,t) = tma(:,:)
        tpa3(:,:,t) = tpa(:,:)
-       t2m3(:,:,t) = t2m(:,:,1)
-       t2j3(:,:,t) = t2j(:,:,1)
+       smb3(:,:,t) = smb(:,:)
 
        snow3(:,:,t) = snow(:,:)
        rain3(:,:,t) = rain(:,:)
@@ -174,7 +172,7 @@ program gpdd
     tpa3(:,:,:) = tpa3(:,:,:) * rhoi 
 
     ! Writing output file 
-    filename = "smb_gpdd.nc"
+    filename = "smb_gpdd_monthly.nc"
 
     ! Create the netcdf file, write global attributes
     call nc_create(filename,overwrite=.TRUE.,netcdf4=.TRUE.)
@@ -190,9 +188,8 @@ program gpdd
     ! Write time dependent output
     call nc_write(filename,"smb",smb3(:,:,:),dim1="x",dim2="y",dim3="time")
     ! forcing
+    call nc_write(filename,"tma",tma3(:,:,:),dim1="x",dim2="y",dim3="time")
     call nc_write(filename,"tpa",tpa3(:,:,:),dim1="x",dim2="y",dim3="time")
-    call nc_write(filename,"t2m",t2m3(:,:,:),dim1="x",dim2="y",dim3="time")
-    call nc_write(filename,"t2j",t2j3(:,:,:),dim1="x",dim2="y",dim3="time")
     ! components
     call nc_write(filename,"rfr",rfr3(:,:,:),dim1="x",dim2="y",dim3="time")
     call nc_write(filename,"snow",snow3(:,:,:),dim1="x",dim2="y",dim3="time")
@@ -201,19 +198,22 @@ program gpdd
     call nc_write(filename,"pdd",pdd3(:,:,:),dim1="x",dim2="y",dim3="time")
     call nc_write(filename,"sir",sir3(:,:,:),dim1="x",dim2="y",dim3="time")
 
-
     ! Clean up
     deallocate(x,y,time)
 
-    ! 2D
+    deallocate(t2m_in)
+    deallocate(tp_in)
+
+    deallocate(t2m)
+    deallocate(tp)
+
+    deallocate(tma)
     deallocate(tpa)
     deallocate(smb)
-    deallocate(t2m)
-    deallocate(t2j)
 
-    ! 3D
-    deallocate(smb3)
+    deallocate(tma3)
     deallocate(tpa3)
+    deallocate(smb3)
 
     deallocate(snow3)
     deallocate(rain3)
@@ -221,5 +221,6 @@ program gpdd
     deallocate(pdd3)
     deallocate(sir3)
     deallocate(rfr3)
+
 
 end program 
