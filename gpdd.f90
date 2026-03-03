@@ -156,8 +156,8 @@ program gpdd
     ! Write time dependent output
     call nc_write(filename,"smb",smb3(:,:,:),dim1="x",dim2="y",dim3="time")
     call nc_write(filename,"acc",acc3(:,:,:),dim1="x",dim2="y",dim3="time")
-    call nc_write(filename,"t2m",t2m3(:,:,:),dim1="x",dim2="y",dim3="time")
-    call nc_write(filename,"t2j",t2j3(:,:,:),dim1="x",dim2="y",dim3="time")
+    !call nc_write(filename,"t2m",t2m3(:,:,:),dim1="x",dim2="y",dim3="time")
+    !call nc_write(filename,"t2j",t2j3(:,:,:),dim1="x",dim2="y",dim3="time")
 
 
     ! Clean up

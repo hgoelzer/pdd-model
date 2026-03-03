@@ -31,8 +31,6 @@ CONTAINS
     REAL(dp), INTENT(OUT) :: smb(ny,nx)        ! surface mass balance (m/yr)
 
     ! Local variables
-    REAL(dp), allocatable               :: tma(:,:)
-    REAL(dp), allocatable               :: tmj(:,:)
     REAL(dp), allocatable               :: snow(:,:)
     REAL(dp), allocatable               :: rain(:,:)
     REAL(dp), allocatable               :: sir(:,:)
@@ -42,16 +40,14 @@ CONTAINS
     REAL(dp), allocatable               :: s_prec(:,:)
     REAL(dp), allocatable               :: h_inv(:,:)
 
-    REAL(dp), PARAMETER                 :: ddfactorsnow = 0.003
-    REAL(dp), PARAMETER                 :: ddfactorice = 0.008
+    REAL(dp), PARAMETER                 :: ddfactorsnow = 0.0033
+    REAL(dp), PARAMETER                 :: ddfactorice = 0.0088
     REAL(dp), PARAMETER                 :: pmax = 0.3 ! See update in Janssens and Huybrechts 2000
  
     INTEGER                             :: i, j
     REAL(dp)                            :: pdds, ablv, sifm
 
     ! Allocate arrays
-    allocate(tma(ny,nx))
-    allocate(tmj(ny,nx))
     allocate(snow(ny,nx))
     allocate(rain(ny,nx))
     allocate(sir(ny,nx))
@@ -61,14 +57,8 @@ CONTAINS
     allocate(s_prec(ny,nx))
     allocate(h_inv(ny,nx))
 
-    ! Global temperature perturbation
-    tma = t2m - 273.15
-
-    ! Summer temperature
-    tmj = t2j - 273.15
-
     ! Determine number of positive degree days per year and rain fraction
-    call calculate_pdd_monthly(nx, ny, tma, tmj, pdd, rfr)
+    call calculate_pdd_monthly(nx, ny, t2m, t2j, pdd, rfr)
 
     ! Distinguish rain and snow according to rain fraction
     rain = acc * rfr
@@ -294,7 +284,7 @@ CONTAINS
     ! Local variables:
     LOGICAL, SAVE             :: first_call = .TRUE.
     INTEGER                   :: i, j, k
-    REAL(dp), PARAMETER       :: sigma = 4.5 
+    REAL(dp), PARAMETER       :: sigma = 6.3 
     REAL(dp), PARAMETER       :: rainlimit = 1.0
     REAL(dp), PARAMETER       :: valmax = 6.0
     INTEGER,  PARAMETER       :: nintx=1200

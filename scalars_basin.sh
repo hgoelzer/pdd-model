@@ -18,12 +18,13 @@ set -e
 #datapath=/home/hgoelzer/Projects/ISMIP6/Data
 #datapath=/projects/NS5011K/ISMIP/ISMIP6/GrIS/Data
 #datapath=/nird/projects/nird/NS5011K/ISMIP/ISMIP6/GrIS/Data
-datapath=./data
+#datapath=./data
+datapath=../Data
 
 ## Reuse Master file
 
 #flg_master=true  # Prepare master
-flg_master=false  # Prepare master
+flg_master=false  # Reuse master
 
 ## What output to process
 #flg_mm=false # Integrals on model mask
@@ -61,6 +62,7 @@ flg_OBSmask=true # [Default false!]
 
 # Resolution
 ares=01
+#ares=16
 #ares=${3}
 
 # area factors
@@ -76,12 +78,12 @@ emfile=$datapath/maxmask1_${ares}000m.nc
 obsinput=$datapath/BM3_GrIS_nn_e${ares}000m.nc
 obsfile=masksOBS.nc
 
-# IMBIE2 Rignot extended masks
-riginput=$datapath/GrIS_Basins_Rignot_extended_e${ares}000m_v1.nc
+# IMBIE2 Rignot masks
+riginput=$datapath/GrIS_Basins_Rignot_e${ares}000m_v1.nc
 rigfile=masksRIG.nc
 
-# IMBIE2 Zwally extended masks
-zwainput=$datapath/GrIS_Basins_Zwally_extended_e${ares}000m_v2.nc
+# IMBIE2 Zwally masks
+zwainput=$datapath/GrIS_Basins_Zwally_e${ares}000m_v2.nc
 zwafile=masksZWA.nc
 
 # GIC area factors
@@ -139,6 +141,7 @@ if $flg_master; then
 	ncap2 -3 -A -s 'sw=ID==4' -v ${riginput} ${rigfile} 
 	ncap2 -3 -A -s 'cw=ID==5' -v ${riginput} ${rigfile} 
 	ncap2 -3 -A -s 'nw=ID==6' -v ${riginput} ${rigfile} 
+	ncap2 -3 -A -s 'gr=ID>=1' -v ${riginput} ${rigfile} 
     fi
 
     # Prepare IMBIE2 Zwally masks, IDs: From NO clockwise
@@ -162,6 +165,7 @@ if $flg_master; then
 	ncap2 -3 -A -s 'z72=ID==17' -v ${zwainput} ${zwafile} 
 	ncap2 -3 -A -s 'z81=ID==18' -v ${zwainput} ${zwafile} 
 	ncap2 -3 -A -s 'z82=ID==19' -v ${zwainput} ${zwafile} 
+	ncap2 -3 -A -s 'zgr=ID>=1' -v ${zwainput} ${zwafile} 
     fi
 
     # Prepare area factors
@@ -267,10 +271,10 @@ ncks -O params.nc ${scfile_rm}
 
 ncks -A params.nc tmp.nc
 
-for basin in no ne se sw cw nw; do
+for basin in no ne se sw cw nw gr; do
 
 # Integrated acabf
-ncap2 -O -s "af=smb*sftgrf*maxmask1*af2*${basin}" tmp_mod.nc tmpaf.nc
+ncap2 -O -s "af=smb*maxmask1*af2*${basin}" tmp_mod.nc tmpaf.nc
 ncap2 -O -s 'smb=af.total($x,$y)*dx^2' -v tmpaf.nc tmpsc.nc
 ncrename -v smb,smb_${basin} tmpsc.nc
 ncks -A -v smb_${basin} tmpsc.nc ${scfile_rm}
@@ -280,7 +284,7 @@ ncatted -a units,smb_${basin},o,c,"kg yr-1" ${scfile_rm}
 /bin/rm tmpaf.nc tmpsc.nc 
 
 # Integrated tp
-ncap2 -O -s "af=acc*sftgrf*maxmask1*af2*${basin}" tmp_mod.nc tmpaf.nc
+ncap2 -O -s "af=acc*maxmask1*af2*${basin}" tmp_mod.nc tmpaf.nc
 ncap2 -O -s 'tp=af.total($x,$y)*dx^2' -v tmpaf.nc tmpsc.nc
 ncrename -v tp,tp_${basin} tmpsc.nc
 ncks -A -v tp_${basin} tmpsc.nc ${scfile_rm}
@@ -300,7 +304,7 @@ ncatted -h -a CDI,global,d,, ${scfile_rm}
 ncatted -h -a Description,global,d,, ${scfile_rm}
 ncatted -h -a proj4,global,d,, ${scfile_rm}
 # Add info
-ncatted -h -a Description,global,o,c,"ISMIP6-Greenland recalculated scalar output. Heiko Goelzer 2021, heig@norceresearch.no" ${scfile_mm}
+ncatted -h -a Description,global,o,c,"ISMIP6-Greenland recalculated scalar output. Heiko Goelzer 2022, heig@norceresearch.no" ${scfile_mm}
 
 fi
 
@@ -314,10 +318,10 @@ ncks -O params.nc ${scfile_zm}
 
 ncks -A params.nc tmp.nc
 
-for basin in z11 z12 z13 z14 z21 z22 z31 z32 z33 z41 z42 z43 z50 z61 z62 z71 z72 z81 z82 ; do
+for basin in z11 z12 z13 z14 z21 z22 z31 z32 z33 z41 z42 z43 z50 z61 z62 z71 z72 z81 z82 zgr ; do
 
 # Integrated acabf
-ncap2 -O -s "af=smb*sftgrf*maxmask1*af2*${basin}" tmp_mod.nc tmpaf.nc
+ncap2 -O -s "af=smb*maxmask1*af2*${basin}" tmp_mod.nc tmpaf.nc
 ncap2 -O -s 'smb=af.total($x,$y)*dx^2' -v tmpaf.nc tmpsc.nc
 ncrename -v smb,smb_${basin} tmpsc.nc
 ncks -A -v smb_${basin} tmpsc.nc ${scfile_zm}
@@ -327,7 +331,7 @@ ncatted -a units,smb_${basin},o,c,"kg yr-1" ${scfile_zm}
 /bin/rm tmpaf.nc tmpsc.nc 
 
 # Integrated tp
-ncap2 -O -s "af=acc*sftgrf*maxmask1*af2*${basin}" tmp_mod.nc tmpaf.nc
+ncap2 -O -s "af=acc*maxmask1*af2*${basin}" tmp_mod.nc tmpaf.nc
 ncap2 -O -s 'tp=af.total($x,$y)*dx^2' -v tmpaf.nc tmpsc.nc
 ncrename -v tp,tp_${basin} tmpsc.nc
 ncks -A -v tp_${basin} tmpsc.nc ${scfile_zm}
@@ -348,7 +352,7 @@ ncatted -h -a CDI,global,d,, ${scfile_zm}
 ncatted -h -a Description,global,d,, ${scfile_zm}
 ncatted -h -a proj4,global,d,, ${scfile_zm}
 # Add info
-ncatted -h -a Description,global,o,c,"ISMIP6-Greenland recalculated scalar output. Heiko Goelzer 2021, heig@norceresearch.no" ${scfile_zm}
+ncatted -h -a Description,global,o,c,"ISMIP6-Greenland recalculated scalar output. Heiko Goelzer 2022, heig@norceresearch.no" ${scfile_zm}
 
 
 fi

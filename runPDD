@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=gpdd
+#SBATCH --job-name=CISM_hist
 # KeyCLIM: nn9252k; INES: nn9560k; GREASE: nn8006k
 #SBATCH --account=nn8006k
-#SBATCH --time=00:10:00
+#SBATCH --partition=preproc
+#SBATCH --time=0-00:10:00
+#SBATCH --ntasks=1 --cpus-per-task=1
 #SBATCH --mem-per-cpu=8G
- ##SBATCH --qos=devel
-#SBATCH --ntasks=1
 
 ## Setting variables and prepare runtime environment:
 ##----------------------------------------------------
