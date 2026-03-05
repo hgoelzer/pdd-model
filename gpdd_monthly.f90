@@ -1,5 +1,5 @@
 program gpdd
-! pdd model for greenland with monthly input
+! pdd model for greenland with monthly input and annual output
 
     use ncio 
     use massbalance_module
@@ -18,6 +18,7 @@ program gpdd
     integer :: i, j, t, year, m
     integer :: ndims
     integer :: ncid
+    double precision :: dyear
 
     ! dimensions
     double precision,   allocatable :: x(:), y(:), time(:) 
@@ -62,7 +63,7 @@ program gpdd
     ! Define array sizes 
     nx = 1681
     ny = 2881
-    nt = 5 ! 1991 - 
+    nt = 1 ! 1991 - 
 
     ! Allocate dimensions
     allocate(x(nx),y(ny),time(nt))
@@ -96,13 +97,14 @@ program gpdd
     allocate(pdd3(nx,ny,nt))
     allocate(rfr3(nx,ny,nt))
 
-    ! Main loop
+    ! Main year loop
     t = 1
     DO WHILE(t <= nt)
 
        year = t+1990
        write(*,*) "Time counter ", t, year, nt
 
+       ! month loop
        m = 1
        DO WHILE(m <= 12)
 
@@ -151,55 +153,58 @@ program gpdd
        ! Model call
        call pdd_model_greenland_total_monthly(nx, ny, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
 
-       ! Update output container
-       tma3(:,:,t) = tma(:,:)
-       tpa3(:,:,t) = tpa(:,:)
-       smb3(:,:,t) = smb(:,:)
+       !! Update output container
+       tma3(:,:,1) = tma(:,:)
+       tpa3(:,:,1) = tpa(:,:)
+       smb3(:,:,1) = smb(:,:)
+       
+       snow3(:,:,1) = snow(:,:)
+       rain3(:,:,1) = rain(:,:)
+       sir3(:,:,1) = sir(:,:)
+       abl3(:,:,1) = abl(:,:)
+       pdd3(:,:,1) = pdd(:,:)
+       rfr3(:,:,1) = rfr(:,:)
 
-       snow3(:,:,t) = snow(:,:)
-       rain3(:,:,t) = rain(:,:)
-       sir3(:,:,t) = sir(:,:)
-       abl3(:,:,t) = abl(:,:)
-       pdd3(:,:,t) = pdd(:,:)
-       rfr3(:,:,t) = rfr(:,:)
+       ! Write out annual files
+       ! convert SMB terms back to mm w.e/yr
+       smb3(:,:,:) = smb3(:,:,:) * rhoi 
+       tpa3(:,:,:) = tpa3(:,:,:) * rhoi 
 
+       ! Writing output file
+       write (filename, "(A42,I0.4,A3)") "GIS_NORCE-CISM-PDD_CESM2_ssp370_r11i1p1f1_", year, ".nc"
+       filename = trim(outpathname) // "/" // trim(filename)
+       dyear = year
+       
+       ! Create the netcdf file, write global attributes
+       call nc_create(filename,overwrite=.TRUE.,netcdf4=.TRUE.)
+       call nc_write_attr(filename,"title","NORCE-CISM-PDD")
+       call nc_write_attr(filename,"institution", "NORCE")
+
+       ! Write the dimensions (x, y, time), defined inline
+       call nc_write_dim(filename,"x",x=0.d0,dx=2500.d0,nx=nx,units="m")
+       call nc_write_dim(filename,"y",x=0.d0,dx=2500.d0,nx=ny,units="m")
+       call nc_write_dim(filename,"time",x=dyear,dx=1.d0,nx=1, &
+            units="years",calendar="360_day", unlimited=.TRUE.)
+
+       ! Write time dependent output
+       call nc_write(filename,"smb",smb3(:,:,1),dim1="x",dim2="y",dim3="time")
+       ! forcing
+       call nc_write(filename,"tma",tma3(:,:,1),dim1="x",dim2="y",dim3="time")
+       call nc_write(filename,"tpa",tpa3(:,:,1),dim1="x",dim2="y",dim3="time")
+       ! components
+       call nc_write(filename,"rfr",rfr3(:,:,1),dim1="x",dim2="y",dim3="time")
+       call nc_write(filename,"snow",snow3(:,:,1),dim1="x",dim2="y",dim3="time")
+       call nc_write(filename,"rain",rain3(:,:,1),dim1="x",dim2="y",dim3="time")
+       call nc_write(filename,"abl",abl3(:,:,1),dim1="x",dim2="y",dim3="time")
+       call nc_write(filename,"pdd",pdd3(:,:,1),dim1="x",dim2="y",dim3="time")
+       call nc_write(filename,"sir",sir3(:,:,1),dim1="x",dim2="y",dim3="time")
+
+       
        ! update timer
        t = t+1
 
     END DO ! end main loop
 
-
-    ! convert SMB terms back to mm w.e/yr
-    smb3(:,:,:) = smb3(:,:,:) * rhoi 
-    tpa3(:,:,:) = tpa3(:,:,:) * rhoi 
-
-    ! Writing output file
-    filename = "smb_gpdd_monthly.nc"
-    filename = trim(outpathname) // "/" // trim(filename)
-
-    ! Create the netcdf file, write global attributes
-    call nc_create(filename,overwrite=.TRUE.,netcdf4=.TRUE.)
-    call nc_write_attr(filename,"title","CARRA_PDD")
-    call nc_write_attr(filename,"institution", "NORCE")
-
-    ! Write the dimensions (x, y, time), defined inline
-    call nc_write_dim(filename,"x",x=0.d0,dx=2500.d0,nx=nx,units="m")
-    call nc_write_dim(filename,"y",x=0.d0,dx=2500.d0,nx=ny,units="m")
-    call nc_write_dim(filename,"time",x=1991.d0,dx=1.d0,nx=nt, &
-                      units="years",calendar="360_day", unlimited=.TRUE.)
-    
-    ! Write time dependent output
-    call nc_write(filename,"smb",smb3(:,:,:),dim1="x",dim2="y",dim3="time")
-    ! forcing
-    call nc_write(filename,"tma",tma3(:,:,:),dim1="x",dim2="y",dim3="time")
-    call nc_write(filename,"tpa",tpa3(:,:,:),dim1="x",dim2="y",dim3="time")
-    ! components
-    call nc_write(filename,"rfr",rfr3(:,:,:),dim1="x",dim2="y",dim3="time")
-    call nc_write(filename,"snow",snow3(:,:,:),dim1="x",dim2="y",dim3="time")
-    call nc_write(filename,"rain",rain3(:,:,:),dim1="x",dim2="y",dim3="time")
-    call nc_write(filename,"abl",abl3(:,:,:),dim1="x",dim2="y",dim3="time")
-    call nc_write(filename,"pdd",pdd3(:,:,:),dim1="x",dim2="y",dim3="time")
-    call nc_write(filename,"sir",sir3(:,:,:),dim1="x",dim2="y",dim3="time")
 
     ! Clean up
     deallocate(x,y,time)
@@ -209,10 +214,6 @@ program gpdd
 
     deallocate(t2m)
     deallocate(tp)
-
-    deallocate(tma)
-    deallocate(tpa)
-    deallocate(smb)
 
     deallocate(tma3)
     deallocate(tpa3)

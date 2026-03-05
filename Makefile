@@ -1,13 +1,12 @@
 .SUFFIXES: .f .F .F90 .f90 .o .mod
 .SHELL: /bin/sh
 
-## GFORTRAN OPTIONS for saga ##
-# module load netCDF-Fortran/4.5.2-gompi-2020a
+## GFORTRAN OPTIONS for olivia 2026.03 ##
+# module load netCDF-Fortran/4.6.1-gompi-2024a
+# module show netCDF-Fortran/4.6.1-gompi-2024a
 FC = gfortran
-LIB = /cluster/software/netCDF-Fortran/4.5.2-gompi-2020a/lib
-INC = /cluster/software/netCDF-Fortran/4.5.2-gompi-2020a/include
-# LIB = /usr/lib
-# INC = /usr/include
+LIB = /cluster/software/NRIS/zen4/software/netCDF-Fortran/4.6.1-gompi-2024a/lib
+INC = /cluster/software/NRIS/zen4/software/netCDF-Fortran/4.6.1-gompi-2024a/include
 
 objdir = obj
 libname = libncio.a
@@ -19,6 +18,7 @@ usage:
 	@echo ""
 	@echo " make gpdd       : compiles the gpdd program gpdd.x"
 	@echo " make gpdd_monthly : compiles the gpdd program gpdd_monthly.x"
+	@echo " make gpdd_monthly_inout : compiles the gpdd program gpdd_monthly_inout.x"
 	@echo " make clean      : cleans object and executable files"
 	@echo ""
 
@@ -66,6 +66,12 @@ gpdd_monthly: $(objdir)/ncio.o $(objdir)/massbalance_module.o
 	@echo "    gpdd_monthly.x is ready."
 	@echo " "
 
+gpdd_monthly_inout: $(objdir)/ncio.o $(objdir)/massbalance_module.o
+	$(FC) $(DFLAGS) $(FLAGS) -o gpdd_monthly_inout.x $^ gpdd_monthly_inout.f90 $(LFLAGS)
+	@echo " "
+	@echo "    gpdd_monthly_inout.x is ready."
+	@echo " "
+
 clean:
-	rm -f gpdd.x gpdd_monthly.x $(objdir)/*.o $(objdir)/*.mod $(objdir)/$(libname)
+	rm -f gpdd.x gpdd_monthly.x gpdd_monthly_inout.x $(objdir)/*.o $(objdir)/*.mod $(objdir)/$(libname)
 

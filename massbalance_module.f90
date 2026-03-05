@@ -4,6 +4,109 @@ MODULE massbalance_module
 
 CONTAINS
 
+  SUBROUTINE pdd_model_greenland_total_monthly_inout(nx, ny, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
+    ! Positive degree day model, uddated by Heiko Goelzer, Mar 2026
+    ! Implements Greenland pdd model of Huybrechts and De Wolde 1999
+    ! Forcing with total monthly fields, output monthly data
+
+    IMPLICIT NONE
+
+    INTEGER, PARAMETER :: dp = KIND(1.0D0)  ! Kind of double precision numbers.
+
+    ! --------------------------------------------------------------------------
+    ! Declaration of global variables
+    ! --------------------------------------------------------------------------
+
+    ! Input variables: 
+    INTEGER, INTENT(IN)  :: nx, ny ! grid size
+
+    REAL(dp), INTENT(IN)  :: tp(nx,ny,12)  ! total monthly precip (m/yr)
+    REAL(dp), INTENT(IN)  :: t2m(nx,ny,12)  ! monthly mean 2m temperature (deg)
+
+    ! Output variables: 
+    REAL(dp), INTENT(OUT) :: smb(nx,ny,12)     ! surface mass balance (m/yr)
+    REAL(dp), INTENT(OUT) :: snow(nx,ny,12)
+    REAL(dp), INTENT(OUT) :: rain(nx,ny,12)
+    REAL(dp), INTENT(OUT) :: sir(nx,ny,12)
+    REAL(dp), INTENT(OUT) :: abl(nx,ny,12)           ! runoff (m/yr)
+    REAL(dp), INTENT(OUT) :: pdd(nx,ny,12)
+    REAL(dp), INTENT(OUT) :: rfr(nx,ny,12)
+
+    ! Local variables
+    REAL(dp), allocatable               :: tm(:,:,:)
+
+    REAL(dp), PARAMETER                 :: ddfactorsnow = 0.003
+    REAL(dp), PARAMETER                 :: ddfactorice = 0.008
+    REAL(dp), PARAMETER                 :: pmax = 0.3 ! See update in Janssens and Huybrechts 2000
+ 
+    INTEGER                             :: i, j, k
+    REAL(dp)                            :: pdds, ablv, sifm
+
+    ! Allocate arrays
+    allocate(tm(nx,ny,12))
+
+    ! Monthly temperature
+    tm = t2m - 273.15
+
+    ! Determine number of positive degree days per year and rain fraction
+    call calculate_pdd_monthly_inout(nx, ny, tm, pdd, rfr)
+
+    ! Distinguish rain and snow according to rain fraction
+    rain = tp * rfr
+    snow = tp - rain
+
+    ! Melt calculation
+    DO j=1,ny
+       DO i=1,nx
+          DO k=1,12
+
+             ! pdd needed for snow melting
+             pdds = snow(i,j,k)/ddfactorsnow
+             ! potential for refreezing 
+             sifm = pmax*snow(i,j,k)
+             ! limit potential by total precipitation (tpa)
+             IF(sifm.GT.tp(i,j,k)) sifm=tp(i,j,k)
+             
+             ! Estimate available melt 
+             IF(pdds.LE.pdd(i,j,k)) THEN
+                ! Remainig energy (pdd) used for ice melt
+                ablv = (pdd(i,j,k)-pdds)*ddfactorice+snow(i,j,k)
+             ELSE
+                ! All energy (pdd) used for snow melt
+                ablv = pdd(i,j,k)*ddfactorsnow
+             ENDIF
+             
+             ! Calculate refreezing
+             IF(ablv.GT.tp(i,j,k)+sifm) THEN
+                ! entire snowpack melted, no refreezing
+                sir(i,j,k) = 0.
+             ELSEIF(ablv.GT.tp(i,j,k)) THEN
+                sir(i,j,k) = tp(i,j,k)+sifm-ablv
+             ELSEIF(ablv.GT.sifm) THEN
+                sir(i,j,k) = sifm
+             ELSE
+                sir(i,j,k) = ablv
+             ENDIF
+             abl(i,j,k) = ablv - sifm
+             ! Sanity check
+             IF(abl(i,j,k).lt.0) abl(i,j,k)=0
+             
+          END DO
+       END DO
+    END DO
+
+    ! no melt where insuffient energy
+    WHERE (pdd.LE.0) 
+     sir = 0
+     abl = 0
+    END WHERE
+
+    smb = tp - abl - rain
+
+  END SUBROUTINE pdd_model_greenland_total_monthly_inout
+
+
+
   SUBROUTINE pdd_model_greenland_total_monthly(nx, ny, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
     ! Positive degree day model, uddated by Heiko Goelzer, Feb 2022
     ! Implements Greenland pdd model of Huybrechts and De Wolde 1999
@@ -594,6 +697,92 @@ CONTAINS
 
   END SUBROUTINE calculate_pdd_monthly
 
+  SUBROUTINE calculate_pdd_monthly_inout(nx, ny, tm12, pdd12, rfr12)
+    ! Positive degree day model, added by Heiko Goelzer, Mar 2026
+    ! PDD model from Huybrechts and De Wolde 1999
+    ! Monthly input and output fields
+
+    IMPLICIT NONE
+
+    INTEGER, PARAMETER :: dp = KIND(1.0D0) ! Kind of double precision numbers.
+    REAL, PARAMETER :: triple_point_of_water = 273.16_dp
+
+    REAL, PARAMETER ::  pi = 2.0_dp * ACOS(0.0_dp)
+
+    ! Input variables: 
+    INTEGER, INTENT(IN)  :: nx, ny ! grid size
+
+    REAL(dp), INTENT(IN)  :: tm12(nx,ny,12) ! monthly temperature 
+
+    ! Output variables: 
+    REAL(dp), INTENT(OUT)  :: pdd12(nx,ny,12)
+    REAL(dp), INTENT(OUT)  :: rfr12(nx,ny,12)
+
+    ! Local variables:
+    LOGICAL, SAVE             :: first_call = .TRUE.
+    INTEGER                   :: i, j, k
+    REAL(dp), PARAMETER       :: sigma = 4.5 
+    REAL(dp), PARAMETER       :: rainlimit = 1.0
+    REAL(dp), PARAMETER       :: valmax = 6.0
+    INTEGER,  PARAMETER       :: nintx=1200
+    REAL(dp)                  :: help1, help2, help3, ampl, tempnorm, fac2, ntemp
+
+    ! PDD
+    REAL(dp), SAVE            :: taberf(-nintx:nintx),tabepdd(-nintx:nintx)
+    REAL(dp)                  :: deltax,sq2pi,fac1,fdx,help,xi,xj,yi,yj
+
+    ! ------------------------------------------------------------------------
+    ! Calculate lookup tables for error function and expected PDD on first call
+    ! Huybrechts and De Wolde 1999 (C10), (C15)
+
+    IF(first_call) THEN
+     taberf(0)=0.0
+     deltax=valmax/nintx
+     sq2pi=(2*pi)**(0.5)
+     fac1=deltax/(2*sq2pi)
+     tabepdd(0)=1./sq2pi
+     xj=0.
+     yj=1.
+     DO i=1,nintx
+       xi=xj
+       yi=yj
+       xj=xj+deltax
+       yj=exp(-0.5*xj*xj)
+       fdx=(yi+yj)*fac1
+       taberf(i) =taberf(i-1)+fdx
+       taberf(-i)=-taberf(i)
+       help=yj/sq2pi+xj*taberf(i)
+       tabepdd(i) =help+xj*0.5
+       tabepdd(-i)=help-xj*0.5
+     END DO
+     first_call = .FALSE.
+    END IF
+
+    ! --------------------------------------------------------------
+    
+    ! Calculate rain fraction and number of PDDs 
+    ! Huybrechts and De Wolde 1999 (C10), (C15)
+    help1=sigma*360./12.
+    fac2=pi/6. 
+    DO j=1,ny
+      DO i=1,nx
+        DO k=1,12
+          ! Current temperature
+          ntemp=tm12(i,j,k)
+          ntemp=ntemp/sigma
+          help2=nintx*ntemp/amax1(abs(ntemp),valmax)
+          ! Monthly PDDs
+          pdd12(i,j,k)=help1*amax1(tabepdd(nint(help2)),ntemp)
+          tempnorm=ntemp-rainlimit/sigma
+          help3=nintx*tempnorm/amax1(abs(tempnorm),valmax)  
+          ! Monthly rain fraction
+          rfr12(i,j,k)=taberf(nint(help3))+0.5
+        END DO
+      END DO
+    END DO
+
+
+  END SUBROUTINE calculate_pdd_monthly_inout
 
 
 END MODULE massbalance_module
