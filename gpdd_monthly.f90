@@ -11,7 +11,8 @@ program gpdd
 
     character(len=256) :: testchar
 
-    character(len=256) :: filename, pathname
+    character(len=256) :: filename
+    character(len=256) :: inpathname, outpathname
 
     integer :: nx, ny, nt 
     integer :: i, j, t, year, m
@@ -55,12 +56,13 @@ program gpdd
     character(len=32),  allocatable :: dimnames(:)
     integer,            allocatable :: dimlens(:)
 
-    pathname = "./data"
+    inpathname = "./data"
+    outpathname = "./output"
     
     ! Define array sizes 
     nx = 1681
     ny = 2881
-    nt = 1
+    nt = 5 ! 1991 - 
 
     ! Allocate dimensions
     allocate(x(nx),y(ny),time(nt))
@@ -106,7 +108,7 @@ program gpdd
 
           ! construct t2m filename
           write (filename, "(A18,I0.2,A1,I0.4,A10)") "t2m_CARRA-monthly-", m, "-", year, "_e01000.nc"
-          filename = trim(pathname) // "/" // trim(filename)
+          filename = trim(inpathname) // "/" // trim(filename)
           write(*,*) 
           write(*,*) "### File t2m: ", filename
           ndims = nc_ndims(filename,"t2m")
@@ -121,7 +123,7 @@ program gpdd
 
           ! construct tp filename
           write (filename, "(A17,I0.2,A1,I0.4,A10)") "tp_CARRA-monthly-", m, "-", year, "_e01000.nc"
-          filename = trim(pathname) // "/" // trim(filename)
+          filename = trim(inpathname) // "/" // trim(filename)
           write(*,*) 
           write(*,*) "### File tp: ", filename
           ndims = nc_ndims(filename,"tp")
@@ -171,8 +173,9 @@ program gpdd
     smb3(:,:,:) = smb3(:,:,:) * rhoi 
     tpa3(:,:,:) = tpa3(:,:,:) * rhoi 
 
-    ! Writing output file 
+    ! Writing output file
     filename = "smb_gpdd_monthly.nc"
+    filename = trim(outpathname) // "/" // trim(filename)
 
     ! Create the netcdf file, write global attributes
     call nc_create(filename,overwrite=.TRUE.,netcdf4=.TRUE.)

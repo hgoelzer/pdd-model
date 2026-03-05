@@ -1,0 +1,71 @@
+.SUFFIXES: .f .F .F90 .f90 .o .mod
+.SHELL: /bin/sh
+
+## GFORTRAN OPTIONS for saga ##
+# module load netCDF-Fortran/4.5.2-gompi-2020a
+FC = gfortran
+LIB = /cluster/software/netCDF-Fortran/4.5.2-gompi-2020a/lib
+INC = /cluster/software/netCDF-Fortran/4.5.2-gompi-2020a/include
+# LIB = /usr/lib
+# INC = /usr/include
+
+objdir = obj
+libname = libncio.a
+
+.PHONY : usage
+usage:
+	@echo ""
+	@echo "    * USAGE * "
+	@echo ""
+	@echo " make gpdd       : compiles the gpdd program gpdd.x"
+	@echo " make gpdd_monthly : compiles the gpdd program gpdd_monthly.x"
+	@echo " make clean      : cleans object and executable files"
+	@echo ""
+
+# Command-line options at make call
+debug ?= 0 
+
+FLAGS  = -I$(objdir) -J$(objdir) -I$(INC)
+LFLAGS = -L$(LIB) -lnetcdff -lnetcdf
+
+DFLAGS = -O3
+ifeq ($(debug), 1)
+    DFLAGS   = -w -g -p -ggdb -ffpe-trap=invalid,zero,overflow,underflow -fbacktrace -fcheck=all
+endif
+
+## Individual libraries or modules ##
+$(objdir)/ncio.o: ncio.f90
+	$(FC) $(DFLAGS) $(FLAGS) -c -o $@ $<
+
+$(objdir)/massbalance_module.o: massbalance_module.f90 $(objdir)/ncio.o 
+	$(FC) $(DFLAGS) $(FLAGS) -c -o $@ $<
+
+
+## Share library 
+$(objdir)/ncio.so: ncio.f90 
+	$(FC) -c -shared -fPIC $(DFLAGS) $(FLAGS) -o ncio.so $^
+
+## Static library
+lib: $(objdir)/$(libname)
+
+$(objdir)/$(libname): $(objdir)/ncio.o
+	ar -rv $@ $^
+	ranlib $@
+
+## Complete programs
+
+gpdd: $(objdir)/ncio.o $(objdir)/massbalance_module.o
+	$(FC) $(DFLAGS) $(FLAGS) -o gpdd.x $^ gpdd.f90 $(LFLAGS)
+	@echo " "
+	@echo "    gpdd.x is ready."
+	@echo " "
+
+gpdd_monthly: $(objdir)/ncio.o $(objdir)/massbalance_module.o
+	$(FC) $(DFLAGS) $(FLAGS) -o gpdd_monthly.x $^ gpdd_monthly.f90 $(LFLAGS)
+	@echo " "
+	@echo "    gpdd_monthly.x is ready."
+	@echo " "
+
+clean:
+	rm -f gpdd.x gpdd_monthly.x $(objdir)/*.o $(objdir)/*.mod $(objdir)/$(libname)
+
