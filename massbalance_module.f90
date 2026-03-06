@@ -138,8 +138,6 @@ CONTAINS
     ! Local variables
     REAL(dp), allocatable               :: tm(:,:,:)
     REAL(dp), allocatable               :: tpa(:,:)
-    REAL(dp), allocatable               :: s_prec(:,:)
-    REAL(dp), allocatable               :: h_inv(:,:)
 
     REAL(dp), PARAMETER                 :: ddfactorsnow = 0.003
     REAL(dp), PARAMETER                 :: ddfactorice = 0.008
@@ -151,8 +149,6 @@ CONTAINS
     ! Allocate arrays
     allocate(tm(nx,ny,12))
     allocate(tpa(nx,ny))
-    allocate(s_prec(nx,ny))
-    allocate(h_inv(nx,ny))
 
     ! Monthly temperature
     tm = t2m - 273.15
@@ -253,8 +249,6 @@ CONTAINS
     ! Local variables
     REAL(dp), allocatable               :: tma(:,:)
     REAL(dp), allocatable               :: tmj(:,:)
-    REAL(dp), allocatable               :: s_prec(:,:)
-    REAL(dp), allocatable               :: h_inv(:,:)
 
     REAL(dp), PARAMETER                 :: ddfactorsnow = 0.003
     REAL(dp), PARAMETER                 :: ddfactorice = 0.008
@@ -266,8 +260,6 @@ CONTAINS
     ! Allocate arrays
     allocate(tma(nx,ny))
     allocate(tmj(nx,ny))
-    allocate(s_prec(nx,ny))
-    allocate(h_inv(nx,ny))
 
     ! Global temperature perturbation
     tma = t2m - 273.15
@@ -331,8 +323,6 @@ CONTAINS
 
     deallocate(tma)
     deallocate(tmj)
-    deallocate(s_prec)
-    deallocate(h_inv)
 
   END SUBROUTINE pdd_model_greenland_total_yearly
 
