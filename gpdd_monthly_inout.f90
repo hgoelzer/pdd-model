@@ -10,23 +10,22 @@ program gpdd
   REAL, PARAMETER :: rhof = 1000.0
 
   character(len=256) :: filename
-  character(len=256) :: inpathname, outpathname
+  character(len=256) :: fileroot_pr, fileroot_tas
+  character(len=256) :: inpathname_pr, inpathname_tas, outpathname
+  character(len=7) :: res_suffix
+  character(len=4) :: cyear
 
   integer :: nx, ny, nt 
-  integer :: i, j, t, year, m
+  integer :: i, j, t, year, year0, m
   integer :: ndims
   integer :: ncid
 
   ! dimensions
   double precision,   allocatable :: x(:), y(:)
 
-  ! forcing
-  double precision,   allocatable :: t2m_in(:,:,:)
-  double precision,   allocatable :: tp_in(:,:,:)
-
   ! variables, all monthly
-  double precision,   allocatable :: t2m(:,:,:)
-  double precision,   allocatable :: tp(:,:,:)
+  double precision,   allocatable :: tas(:,:,:)
+  double precision,   allocatable :: pr(:,:,:)
   double precision,   allocatable :: smb(:,:,:)
   double precision,   allocatable :: snow(:,:,:)
   double precision,   allocatable :: rain(:,:,:)
@@ -38,23 +37,36 @@ program gpdd
   character(len=32),  allocatable :: dimnames(:)
   integer,            allocatable :: dimlens(:)
 
-  inpathname = "./data"
+  
+  ! Setup and parameters
+  
+  inpathname_pr = "./Forcing/CESM2/ssp370/pr"
+  inpathname_tas = "./Forcing/CESM2/ssp370/tas_corr"
   outpathname = "./output"
 
-  ! Define array sizes 
-  nx = 1681
-  ny = 2881
-  nt = 2 ! 1991 - 
+  fileroot_pr = "pr_Amon_CESM2_ssp370_r11i1p1f1"
+  fileroot_tas = "tas_Amon_CESM2_ssp370_r11i1p1f1" 
 
+  ! Define array sizes 
+!  nx = 1681
+!  ny = 2881
+!  res_suffix = "i01000m"
+
+  ! 8 km
+  nx = 211
+  ny = 361
+  res_suffix = "i08000m"
+
+  ! timing
+  year0 = 2015
+  nt = 2 
+  
   ! Allocate dimensions
   allocate(x(nx),y(ny))
 
   ! Allocate arrays
-  allocate(t2m_in(nx,ny,1))
-  allocate(tp_in(nx,ny,1))
-
-  allocate(t2m(nx,ny,12))
-  allocate(tp(nx,ny,12))
+  allocate(tas(nx,ny,12))
+  allocate(pr(nx,ny,12))
 
   allocate(smb(nx,ny,12))
   allocate(snow(nx,ny,12))
@@ -65,68 +77,59 @@ program gpdd
   allocate(rfr(nx,ny,12))
 
   ! Main year loop
-  t = 1
+  t = 0
   DO WHILE(t <= nt)
 
-     year = t+1990
+     year = t + year0
      write(*,*) "Time counter ", t, year, nt
 
-     ! month loop
-     m = 1
-     DO WHILE(m <= 12)
+     ! Reading yearly files with monthly data
+     write (cyear, "(I0.4)") year
 
-        ! construct t2m filename
-        write (filename, "(A18,I0.2,A1,I0.4,A10)") "t2m_CARRA-monthly-", m, "-", year, "_e01000.nc"
-        filename = trim(inpathname) // "/" // trim(filename)
-        write(*,*) 
-        write(*,*) "### File t2m: ", filename
-        ndims = nc_ndims(filename,"t2m")
-        call nc_dims(filename,"t2m",dimnames,dimlens)
-        write(*,*) "ndims= ", ndims
-        !write(*,*) "dimnames= ", dimnames
-        write(*,*) "dimlens=  ", dimlens 
-        call nc_open(filename, ncid, .FALSE.)
-        call nc_read(filename, "t2m",t2m_in)
-        call nc_close(ncid)
-        t2m(:,:,m) = t2m_in(:,:,1)
+     ! Reading tas [K]
+     filename = trim(inpathname_tas) // "/" // trim(fileroot_tas) // "_" // trim(cyear) // "_" // trim(res_suffix) // ".nc"
+     write(*,*) 
+     write(*,*) "### File tas: ", filename
+     ndims = nc_ndims(filename,"tas")
+     call nc_dims(filename,"tas",dimnames,dimlens)
+     write(*,*) "ndims= ", ndims
+     !write(*,*) "dimnames= ", dimnames
+     write(*,*) "dimlens=  ", dimlens 
+     call nc_open(filename, ncid, .FALSE.)
+     call nc_read(filename, "tas",tas)
+     call nc_close(ncid)
 
-        ! construct tp filename
-        write (filename, "(A17,I0.2,A1,I0.4,A10)") "tp_CARRA-monthly-", m, "-", year, "_e01000.nc"
-        filename = trim(inpathname) // "/" // trim(filename)
-        write(*,*) 
-        write(*,*) "### File tp: ", filename
-        ndims = nc_ndims(filename,"tp")
-        call nc_dims(filename,"tp",dimnames,dimlens)
-        write(*,*) "ndims= ", ndims
-        !write(*,*) "dimnames= ", dimnames
-        write(*,*) "dimlens=  ", dimlens 
-        call nc_open(filename, ncid, .FALSE.)
-        call nc_read(filename, "tp",tp_in)
-        call nc_close(ncid)
-        tp(:,:,m) = tp_in(:,:,1)
+     ! Reading pr [kg/m2/s]
+     filename = trim(inpathname_pr) // "/" // trim(fileroot_pr) // "_" // trim(cyear) // "_" // trim(res_suffix) // ".nc"
+     write(*,*) 
+     write(*,*) "### File pr: ", filename
+     ndims = nc_ndims(filename,"pr")
+     call nc_dims(filename,"pr",dimnames,dimlens)
+     write(*,*) "ndims= ", ndims
+     !write(*,*) "dimnames= ", dimnames
+     write(*,*) "dimlens=  ", dimlens 
+     call nc_open(filename, ncid, .FALSE.)
+     call nc_read(filename, "pr",pr)
+     call nc_close(ncid)
+     ! End reading files   
 
-        ! update timer
-        m = m+1
-
-     END DO ! month loop
-
-
-     ! Precip forcing; convert from kg/m2/yr = mm/yr w.e. to m/yr i.e.
-     tp(:,:,:) = tp(:,:,:)/1000.*rhof/rhoi
+     
+     ! Precip forcing; convert from kg/m2/s = mm w.e./s  to m i.e./yr
+     pr(:,:,:) = pr(:,:,:)*31556926/1000.*rhof/rhoi
 
      ! Model call
-     call pdd_model_greenland_total_monthly_inout(nx, ny, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
+     call pdd_model_greenland_total_monthly_inout(nx, ny, pr, tas, smb, snow, rain, sir, abl, pdd, rfr)
 
      ! convert SMB terms to kg m-2 s-1 = mm w.e. / s
      smb(:,:,:) = smb(:,:,:) * rhoi / 31556926
-     tp(:,:,:) = tp(:,:,:) * rhoi / 31556926
+     pr(:,:,:) = pr(:,:,:) * rhoi / 31556926
      rain(:,:,:) = rain(:,:,:) * rhoi / 31556926
      abl(:,:,:) = abl(:,:,:) * rhoi / 31556926
      sir(:,:,:) = sir(:,:,:) * rhoi / 31556926
 
      ! Write files
-     call write_nc_file(t2m, year, outpathname, "tas", "K", "air_temperature")
-     call write_nc_file(tp, year, outpathname, "pr", "kg m-2 s-1", "precipitation_flux")
+     call write_nc_file(tas, year, outpathname, "tas", "K", "air_temperature")
+     call write_nc_file(pr, year, outpathname, "pr", "kg m-2 s-1", "precipitation_flux")
      call write_nc_file(smb, year, outpathname, "acabf", "kg m-2 s-1", "land_ice_surface_specific_mass_balance_flux")
      call write_nc_file(abl, year, outpathname, "mrro", "kg m-2 s-1", "runoff_flux")
      call write_nc_file(rain, year, outpathname, "prra", "kg m-2 s-1", "rainfall_flux")
@@ -141,11 +144,8 @@ program gpdd
   ! Clean up
   deallocate(x,y)
 
-  deallocate(t2m_in)
-  deallocate(tp_in)
-
-  deallocate(t2m)
-  deallocate(tp)
+  deallocate(tas)
+  deallocate(pr)
 
   deallocate(smb)
   deallocate(snow)
