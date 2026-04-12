@@ -21,7 +21,7 @@ CONTAINS
     INTEGER, INTENT(IN)  :: nx, ny ! grid size
 
     REAL(dp), INTENT(IN)  :: tp(nx,ny,12)  ! total monthly precip (m/yr)
-    REAL(dp), INTENT(IN)  :: t2m(nx,ny,12)  ! monthly mean 2m temperature (deg)
+    REAL(dp), INTENT(IN)  :: t2m(nx,ny,12)  ! monthly mean 2m temperature (K)
 
     ! Output variables: 
     REAL(dp), INTENT(OUT) :: smb(nx,ny,12)     ! surface mass balance (m/yr)
@@ -45,11 +45,13 @@ CONTAINS
     ! Allocate arrays
     allocate(tm(nx,ny,12))
 
-    ! Monthly temperature
+    ! Monthly temperature (C)
     tm = t2m - 273.15
 
     ! Determine number of positive degree days per year and rain fraction
-    call calculate_pdd_monthly_inout(nx, ny, tm, pdd, rfr)
+    !call calculate_pdd_monthly_inout(nx, ny, tm, pdd, rfr)
+    ! With parameterised seasonal cycle
+    call calculate_pdd_monthly_inout_taj(nx, ny, tm, pdd, rfr)
 
     ! Distinguish rain and snow according to rain fraction
     rain = tp * rfr
@@ -101,7 +103,7 @@ CONTAINS
      abl = 0
     END WHERE
 
-    smb = tp - abl - rain
+    smb = tp - abl - rain ! = snow - abl
 
   END SUBROUTINE pdd_model_greenland_total_monthly_inout
 
@@ -222,7 +224,6 @@ CONTAINS
     IMPLICIT NONE
 
     INTEGER, PARAMETER :: dp = KIND(1.0D0)  ! Kind of double precision numbers.
-    REAL, PARAMETER :: triple_point_of_water = 273.16_dp
 
     REAL, PARAMETER ::  pi = 2.0_dp * ACOS(0.0_dp)
 
@@ -335,7 +336,6 @@ CONTAINS
     IMPLICIT NONE
 
     INTEGER, PARAMETER :: dp = KIND(1.0D0)  ! Kind of double precision numbers.
-    REAL, PARAMETER :: triple_point_of_water = 273.16_dp
 
     REAL, PARAMETER ::  pi = 2.0_dp * ACOS(0.0_dp)
 
@@ -481,7 +481,6 @@ CONTAINS
     IMPLICIT NONE
 
     INTEGER, PARAMETER :: dp = KIND(1.0D0) ! Kind of double precision numbers.
-    REAL, PARAMETER :: triple_point_of_water = 273.16_dp
 
     REAL, PARAMETER ::  pi = 2.0_dp * ACOS(0.0_dp)
 
@@ -590,7 +589,6 @@ CONTAINS
     IMPLICIT NONE
 
     INTEGER, PARAMETER :: dp = KIND(1.0D0) ! Kind of double precision numbers.
-    REAL, PARAMETER :: triple_point_of_water = 273.16_dp
 
     REAL, PARAMETER ::  pi = 2.0_dp * ACOS(0.0_dp)
 
@@ -612,7 +610,7 @@ CONTAINS
     INTEGER,  PARAMETER       :: nintx=1200
     REAL(dp), allocatable     :: pdd12(:,:,:)
     REAL(dp), allocatable     :: rfr12(:,:,:)
-    REAL(dp)                  :: help1, help2, help3, ampl, tempnorm, fac2, ntemp12
+    REAL(dp)                  :: help1, help2, help3, ampl, tempnorm, ntemp12
 
     ! PDD
     REAL(dp), SAVE            :: taberf(-nintx:nintx),tabepdd(-nintx:nintx)
@@ -655,7 +653,6 @@ CONTAINS
     ! Calculate rain fraction and number of PDDs 
     ! Huybrechts and De Wolde 1999 (C10), (C15)
     help1=sigma*360./12.
-    fac2=pi/6. 
     DO j=1,ny
       DO i=1,nx
         pdd(i,j)=0.0
@@ -695,14 +692,13 @@ CONTAINS
     IMPLICIT NONE
 
     INTEGER, PARAMETER :: dp = KIND(1.0D0) ! Kind of double precision numbers.
-    REAL, PARAMETER :: triple_point_of_water = 273.16_dp
 
     REAL, PARAMETER ::  pi = 2.0_dp * ACOS(0.0_dp)
 
     ! Input variables: 
     INTEGER, INTENT(IN)  :: nx, ny ! grid size
 
-    REAL(dp), INTENT(IN)  :: tm12(nx,ny,12) ! monthly temperature 
+    REAL(dp), INTENT(IN)  :: tm12(nx,ny,12) ! monthly temperature (C)
 
     ! Output variables: 
     REAL(dp), INTENT(OUT)  :: pdd12(nx,ny,12)
@@ -715,7 +711,7 @@ CONTAINS
     REAL(dp), PARAMETER       :: rainlimit = 1.0
     REAL(dp), PARAMETER       :: valmax = 6.0
     INTEGER,  PARAMETER       :: nintx=1200
-    REAL(dp)                  :: help1, help2, help3, ampl, tempnorm, fac2, ntemp
+    REAL(dp)                  :: help1, help2, help3, ampl, tempnorm, ntemp
 
     ! PDD
     REAL(dp), SAVE            :: taberf(-nintx:nintx),tabepdd(-nintx:nintx)
@@ -753,7 +749,6 @@ CONTAINS
     ! Calculate rain fraction and number of PDDs 
     ! Huybrechts and De Wolde 1999 (C10), (C15)
     help1=sigma*360./12.
-    fac2=pi/6. 
     DO j=1,ny
       DO i=1,nx
         DO k=1,12
@@ -775,4 +770,102 @@ CONTAINS
   END SUBROUTINE calculate_pdd_monthly_inout
 
 
+  SUBROUTINE calculate_pdd_monthly_inout_taj(nx, ny, tm12, pdd12, rfr12)
+    ! Positive degree day model, added by Heiko Goelzer, Mar 2026
+    ! PDD model from Huybrechts and De Wolde 1999
+    ! Monthly input and output fields
+    !   Seasonal cycle is parametised using annual mean and july temperature
+    !   This is only for testing backwards compatability ! 
+
+    IMPLICIT NONE
+
+    INTEGER, PARAMETER :: dp = KIND(1.0D0) ! Kind of double precision numbers.
+
+    REAL, PARAMETER ::  pi = 2.0_dp * ACOS(0.0_dp)
+
+    ! Input variables: 
+    INTEGER, INTENT(IN)  :: nx, ny ! grid size
+
+    REAL(dp), INTENT(IN)  :: tm12(nx,ny,12) ! monthly temperature (C)
+
+    ! Output variables: 
+    REAL(dp), INTENT(OUT)  :: pdd12(nx,ny,12)
+    REAL(dp), INTENT(OUT)  :: rfr12(nx,ny,12)
+
+    ! Local variables:
+    LOGICAL, SAVE             :: first_call = .TRUE.
+    INTEGER                   :: i, j, k
+    REAL(dp), PARAMETER       :: sigma = 4.5 
+    REAL(dp), PARAMETER       :: rainlimit = 1.0
+    REAL(dp), PARAMETER       :: valmax = 6.0
+    INTEGER,  PARAMETER       :: nintx=1200
+    REAL(dp)                  :: help1, help2, help3, ampl, tempnorm, ntemp, fac2, tma
+
+    ! PDD
+    REAL(dp), SAVE            :: taberf(-nintx:nintx),tabepdd(-nintx:nintx)
+    REAL(dp)                  :: deltax,sq2pi,fac1,fdx,help,xi,xj,yi,yj
+
+    ! ------------------------------------------------------------------------
+    ! Calculate lookup tables for error function and expected PDD on first call
+    ! Huybrechts and De Wolde 1999 (C10), (C15)
+
+    IF(first_call) THEN
+     taberf(0)=0.0
+     deltax=valmax/nintx
+     sq2pi=(2*pi)**(0.5)
+     fac1=deltax/(2*sq2pi)
+     tabepdd(0)=1./sq2pi
+     xj=0.
+     yj=1.
+     DO i=1,nintx
+       xi=xj
+       yi=yj
+       xj=xj+deltax
+       yj=exp(-0.5*xj*xj)
+       fdx=(yi+yj)*fac1
+       taberf(i) =taberf(i-1)+fdx
+       taberf(-i)=-taberf(i)
+       help=yj/sq2pi+xj*taberf(i)
+       tabepdd(i) =help+xj*0.5
+       tabepdd(-i)=help-xj*0.5
+     END DO
+     first_call = .FALSE.
+    END IF
+
+    ! --------------------------------------------------------------
+
+    ! Calculate rain fraction and number of PDDs 
+    ! Huybrechts and De Wolde 1999 (C10), (C15)
+    help1=sigma*360./12.
+    fac2=pi/6. 
+    DO j=1,ny
+      DO i=1,nx
+        ! Annual mean
+        tma = 0.0
+        DO k=1,12
+          tma = tma + tm12(i,j,k)/12.
+        END DO
+        ! Seosonal amplitude
+        ampl=abs(tm12(i,j,7)-tma)
+        DO k=1,12
+          ! Current temperature, parameterised seasonal cyclce
+          ! was monthly temp: ntemp=tm12(i,j,k)
+          ! note -cos to aling seasonal cycle for monthly output 
+          ntemp=tma-ampl*cos(fac2*(k-1)) 
+          ntemp=ntemp/sigma
+          help2=nintx*ntemp/amax1(abs(ntemp),valmax)
+          ! Monthly PDDs
+          pdd12(i,j,k)=help1*amax1(tabepdd(nint(help2)),ntemp)
+          tempnorm=ntemp-rainlimit/sigma
+          help3=nintx*tempnorm/amax1(abs(tempnorm),valmax)  
+          ! Monthly rain fraction
+          rfr12(i,j,k)=taberf(nint(help3))+0.5
+        END DO
+      END DO
+    END DO
+
+
+  END SUBROUTINE calculate_pdd_monthly_inout_taj
+
+  
 END MODULE massbalance_module
