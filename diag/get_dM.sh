@@ -5,14 +5,14 @@
 filename=scalars_mm_08.nc
 
 # control time ranges
-ncks -O -d time,110,139 ${filename} t0_tmp.nc
-ncks -O -d time,220,249 ${filename} t1_tmp.nc
+ncks -O -d time,10,39 ${filename} t0_tmp.nc
+ncks -O -d time,120,149 ${filename} t1_tmp.nc
 ncdump -t t0_tmp.nc | grep "time ="
 ncdump -t t1_tmp.nc | grep "time ="
 
 # calculate differences
-ncra -O -d time,110,139 ${filename} t0_tmp.nc
-ncra -O -d time,220,249 ${filename} t1_tmp.nc
+ncra -O -d time,10,39 ${filename} t0_tmp.nc
+ncra -O -d time,120,149 ${filename} t1_tmp.nc
 ncdiff -O t1_tmp.nc t0_tmp.nc dm_tmp.nc 
 ncap2 -O -s "dMgt = acabf*1e-12" dm_tmp.nc dm_tmp.nc 
 echo "Mass change in Gt"

@@ -35,8 +35,8 @@ CONTAINS
     ! Local variables
     REAL(dp), allocatable               :: tm(:,:,:)
 
-    REAL(dp), PARAMETER                 :: ddfactorsnow = 0.003
-    REAL(dp), PARAMETER                 :: ddfactorice = 0.008
+    REAL(dp), PARAMETER                 :: ddfactorsnow = 0.00297 ! JJF ref
+    REAL(dp), PARAMETER                 :: ddfactorice = 0.00791 ! JJF ref
     REAL(dp), PARAMETER                 :: pmax = 0.3 ! See update in Janssens and Huybrechts 2000
  
     INTEGER                             :: i, j, k

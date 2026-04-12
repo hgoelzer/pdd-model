@@ -21,7 +21,7 @@ module --quiet load ncview/2.1.8-gompi-2020a
 module list  
 
 # run 
-time srun ./scalars_basin.sh 
+time srun ./calc_scalars.sh
 
 # Finish the script
 exit 0

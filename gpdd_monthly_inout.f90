@@ -71,8 +71,8 @@ program gpdd
   !inpathname_tas = "./Forcing/CESM2/historical/tas_anom"
   !fileroot_pr = "pr_ratio_Amon_CESM2_historical_r11i1p1f1"
   !fileroot_tas = "tas_Amon_CESM2_historical_r11i1p1f1" 
-  !year0 = 1850
-  !nt = 165
+  !year0 = 1950
+  !nt = 65
   !fileroot_out = "GIS_NORCE-PDD_CESM2_historical_r11i1p1f1"
 
   ! ssp370

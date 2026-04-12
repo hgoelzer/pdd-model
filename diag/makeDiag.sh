@@ -1,19 +1,24 @@
+#!/bin/bash
 # Produce some quick diags
+
+#set -x
 
 # switch from 0 = mm s-1 to 1 = mm yr-1
 outputmode=0
 ares=08
 #ares=01
 
-run=output_${ares}000m_baseline
+run=output_${ares}000m
 
 # time series
+echo "make time series"
 ncrcat -O ../${run}/acabf_GIS_NORCE-PDD* acabf.nc
 ncrcat -O ../${run}/pr_GIS_NORCE-PDD* pr.nc
 #ncrcat -O ../${run}/tas_GIS_NORCE-PDD* tas.nc
 #ncrcat -O ../${run}/prsn_GIS_NORCE-PDD* prsn.nc
 #ncrcat -O ../${run}/mrro_GIS_NORCE-PDD* mrro.nc
 
+echo "monthly to yearly"
 module load CDO
 cdo yearmean acabf.nc acabf_yearly.nc
 if (( outputmode == 0 )); then
@@ -48,6 +53,7 @@ fi
 #ncdiff -O acabf.nc acabf0.nc dacabf.nc
 
 # output for scalar calculation
+echo "produce summary file"
 ncks -O -v acabf acabf_yearly.nc ./smb_gpdd_${ares}000m.nc
 ncks -A -v pr pr_yearly.nc ./smb_gpdd_${ares}000m.nc
 ncap2 -O -s "acabf=float(acabf)" ./smb_gpdd_${ares}000m.nc ./smb_gpdd_${ares}000m.nc
@@ -55,4 +61,4 @@ ncap2 -O -s "pr=float(pr)" ./smb_gpdd_${ares}000m.nc ./smb_gpdd_${ares}000m.nc
 ncap2 -O -s "x=float(x); y=float(y)" ./smb_gpdd_${ares}000m.nc ./smb_gpdd_${ares}000m.nc
 
 # clean up
-/bin/rm acabf.nc acabf_yearly.nc pr.nc pr_yearly.nc
+# /bin/rm acabf.nc acabf_yearly.nc pr.nc pr_yearly.nc
