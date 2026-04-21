@@ -1,6 +1,6 @@
 # Runs on ISMIP6 grid 
 
-# Data from and Forcing, tyipcally linked in
+# data and Forcing, tyipcally linked in from below
 data/
 Forcing/
 

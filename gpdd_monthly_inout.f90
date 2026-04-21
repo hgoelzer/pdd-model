@@ -13,12 +13,12 @@ program gpdd
   character(len=256) :: fileroot_pr, fileroot_tas
   character(len=256) :: inpathname_pr, inpathname_tas
   character(len=256) :: outpathname, fileroot_out
-  character(len=256) :: filename_prref, filename_tasref
+  character(len=256) :: filename_prref, filename_tasref, filename_defmask
   character(len=7)   :: res_suffix
   character(len=4)   :: cyear
 
   integer :: nx, ny, nt 
-  integer :: i, j, t, year, year0, m
+  integer :: i, j, t, year, year0, m, k
   integer :: ndims
   integer :: ncid
   integer :: fmode
@@ -43,7 +43,8 @@ program gpdd
   double precision,   allocatable :: pr_ref(:,:,:)
   double precision,   allocatable :: tas_anom(:,:,:)
   double precision,   allocatable :: pr_ratio(:,:,:)
-
+  double precision,   allocatable :: def_mask(:,:)
+  
   character(len=32),  allocatable :: dimnames(:)
   integer,            allocatable :: dimlens(:)
 
@@ -73,7 +74,7 @@ program gpdd
   !fileroot_tas = "tas_Amon_CESM2_historical_r11i1p1f1" 
   !year0 = 1950
   !nt = 65
-  !fileroot_out = "GIS_NORCE-PDD_CESM2_historical_r11i1p1f1"
+  !fileroot_out = "GIS_NORCEPDD1_CESM2_Historical_r11i1p1f1"
 
   ! ssp370
   inpathname_pr = "./Forcing/CESM2/ssp370/pr_ratio"
@@ -82,27 +83,39 @@ program gpdd
   fileroot_tas = "tas_Amon_CESM2_ssp370_r11i1p1f1" 
   year0 = 2015
   nt = 86
-  fileroot_out = "GIS_NORCE-PDD_CESM2_ssp370_r11i1p1f1"
+  fileroot_out = "GIS_NORCEPDD1_CESM2_SSP370_r11i1p1f1"
   
-  ! Define array sizes
-  !! 1 km
+  ! Define reference forcing
+  !! 1 km MAR
   !nx = 1681
   !ny = 2881
   !res = 1000.
   !res_suffix = "i01000m"
   !filename_prref = "Forcing/MARv3.11/precip12_ref_MARv3.11_monthly_ERA5_1960-1989_i01000m.nc"
   !filename_tasref = "Forcing/MARv3.11/artm12_ref_MARv3.11_monthly_ERA5_1960-1989_i01000m.nc"
-  !outpathname = "./output_01000m" ! must exists
+  !outpathname = "./output" ! must exists
 
-  !! 8 km
+  !! 8 km MAR
+  !nx = 211
+  !ny = 361
+  !res = 8000.
+  !res_suffix = "i08000m"
+  !filename_prref = "Forcing/MARv3.14/pr_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc" ! mm w.e./month
+  !filename_tasref = "Forcing/MARv3.14/tas_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc" ! K
+  !filename_defmask = "Forcing/constant/sftgif_BM5_08000m.nc" ! 1
+  !outpathname = "./output" ! must exists
+
+  ! 8 km MARv3.14LC26
   nx = 211
   ny = 361
   res = 8000.
   res_suffix = "i08000m"
-  filename_prref = "Forcing/MARv3.14/pr_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc" ! mm w.e./month
-  filename_tasref = "Forcing/MARv3.14/tas_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc" ! K
-  outpathname = "./output_08000m" ! must exists
-
+  filename_prref = "Forcing/MARv3.14LC26/pr_ref_MARv3.14LC26-monthly-ERA5-1960-1989_08000m.nc" ! mm w.e./month
+  filename_tasref = "Forcing/MARv3.14LC26/tas_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc" ! K
+  !filename_defmask = "Forcing/constant/sftgif_BM5_08000m.nc" ! 1
+  filename_defmask = "Forcing/constant/sftgif_promice_08000m.nc" ! 1
+  outpathname = "./output" ! must exists
+  
   ! #########################################################################
   
   ! Allocate dimensions
@@ -119,6 +132,8 @@ program gpdd
   allocate(abl(nx,ny,12))
   allocate(pdd(nx,ny,12))
   allocate(rfr(nx,ny,12))
+
+  allocate(def_mask(nx,ny))
 
   ! Mode specific 
   if (fmode == 0) then
@@ -166,6 +181,14 @@ program gpdd
      ! convert to rate: mm w.e. s-1
      pr_ref(:,:,:) = pr_ref(:,:,:)/31556926*12.
 
+     ndims = nc_ndims(filename_defmask,"sftgif")
+     call nc_dims(filename_defmask,"sftgif",dimnames,dimlens)
+     write(*,*) "ndims= ", ndims
+     write(*,*) "dimnames= ", dimnames
+     write(*,*) "dimlens=  ", dimlens 
+     call nc_open(filename_defmask, ncid, .FALSE.)
+     call nc_read(filename_defmask, "sftgif",def_mask) ! 1
+     call nc_close(ncid)
   end if
 
 
@@ -248,7 +271,24 @@ program gpdd
         abl(:,:,:) = abl(:,:,:) * rhoi 
         sir(:,:,:) = sir(:,:,:) * rhoi 
      end if
-     
+
+     ! Mask output to def_mask
+    DO j=1,ny
+       DO i=1,nx
+          DO k=1,12
+             tas(i,j,k) = tas(i,j,k) * def_mask(i,j)
+             pdd(i,j,k) = pdd(i,j,k) * def_mask(i,j)
+             pr(i,j,k) = pr(i,j,k) * def_mask(i,j)
+             rfr(i,j,k) = rfr(i,j,k) * def_mask(i,j)
+             smb(i,j,k) = smb(i,j,k) * def_mask(i,j)
+             rain(i,j,k) = rain(i,j,k) * def_mask(i,j)
+             snow(i,j,k) = snow(i,j,k) * def_mask(i,j)
+             abl(i,j,k) = abl(i,j,k) * def_mask(i,j)
+             sir(i,j,k) = sir(i,j,k) * def_mask(i,j)
+          END DO
+       END DO
+    END DO
+          
      ! Write files
      if (outputmode == 0) then        
         call write_nc_file(tas, res, year, outpathname, &
@@ -305,6 +345,8 @@ program gpdd
   deallocate(abl)
   deallocate(pdd)
   deallocate(rfr)
+
+  deallocate(def_mask)
 
   if (fmode == 1) then
      deallocate(tas_ref)

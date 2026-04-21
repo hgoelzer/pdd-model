@@ -1,5 +1,8 @@
 # prepare diagnostics
 
+../data/
+input files from /nird/datalake/NS8002K/heig/ISMIP6/GrIS/Data/process
+
 ./makeDiag.sh
 ./calc_scalars.sh
 ./get_dM.sh

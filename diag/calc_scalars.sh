@@ -13,6 +13,14 @@
 set -x
 set -e
 
+# Resolution
+#ares=01
+ares=08
+#ares=${3}
+
+#run=output_MAR
+run=output
+
 # Path to mask data
 datapath=../data
 
@@ -36,13 +44,8 @@ flg_GICmask=false # [Default true!]
 flg_OBSmask=true # [Default false!]
 #flg_OBSmask=${2} # [Default false!]
 
-# Resolution
-#ares=01
-ares=08
-#ares=${3}
-
 # Model data
-infile=./smb_gpdd_${ares}000m.nc
+infile=${run}/smb_gpdd_${ares}000m.nc
 maskfile=icemasks_${ares}000m.nc
 
 # area factors
@@ -59,6 +62,7 @@ obsinput=$datapath/BM3_GrIS_nn_e${ares}000m.nc
 obsfile=masksOBS.nc
 
 # PROMICE mask
+#prominput=$datapath/sftgif_BM5_${ares}000m.nc
 prominput=$datapath/icemask_promice_${ares}000m.nc
 promfile=maskPROM.nc
 
@@ -74,8 +78,8 @@ gicfile=masksGIC.nc
 # smb 
 
 # Possible output files
-scfile_mm=scalars_mm_${ares}.nc
-scfile_rm=scalars_rm_${ares}.nc
+scfile_mm=${run}/scalars_mm_${ares}.nc
+scfile_rm=${run}/scalars_rm_${ares}.nc
 
 
 if $flg_master; then
@@ -112,6 +116,8 @@ if $flg_master; then
     ncrename -v sftflf,sftflf_BM ${obsfile}
 
     # prepare PROMICE mask
+    #ncks -3 -O -v sftgif ${prominput} ${promfile}
+    #ncrename -v sftgif,sftgif_PROM ${promfile}
     ncks -3 -O -v icemask_promice ${prominput} ${promfile}
     ncrename -v icemask_promice,sftgif_PROM ${promfile}
     

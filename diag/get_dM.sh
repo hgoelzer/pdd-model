@@ -2,7 +2,12 @@
 # Calculate mass change 2070-2099 vs 1960-1989
 #cdo expr,'diff = var1 - var2' -merge file1.nc file2.nc output.nc
 
-filename=scalars_mm_08.nc
+ares=08
+
+#run=output_MAR
+run=output
+
+filename=${run}/scalars_mm_08.nc
 
 # control time ranges
 ncks -O -d time,10,39 ${filename} t0_tmp.nc
