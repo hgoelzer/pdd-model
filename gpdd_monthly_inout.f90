@@ -67,23 +67,23 @@ program gpdd
   !fileroot_tas = "tas_Amon_CESM2_ssp370_r11i1p1f1" 
   
   fmode = 1
-  !! historical
-  !inpathname_pr = "./Forcing/CESM2/historical/pr_ratio"
-  !inpathname_tas = "./Forcing/CESM2/historical/tas_anom"
-  !fileroot_pr = "pr_ratio_Amon_CESM2_historical_r11i1p1f1"
-  !fileroot_tas = "tas_Amon_CESM2_historical_r11i1p1f1" 
-  !year0 = 1950
-  !nt = 65
-  !fileroot_out = "GIS_NORCEPDD1_CESM2_Historical_r11i1p1f1"
+  ! historical
+  inpathname_pr = "./Forcing/CESM2/historical/pr_ratio"
+  inpathname_tas = "./Forcing/CESM2/historical/tas_anom"
+  fileroot_pr = "pr_ratio_Amon_CESM2_historical_r11i1p1f1"
+  fileroot_tas = "tas_Amon_CESM2_historical_r11i1p1f1" 
+  year0 = 2014 !1950
+  nt = 1 !65
+  fileroot_out = "GIS_NORCEPDD1_CESM2_Historical_r11i1p1f1"
 
-  ! ssp370
-  inpathname_pr = "./Forcing/CESM2/ssp370/pr_ratio"
-  inpathname_tas = "./Forcing/CESM2/ssp370/tas_anom"
-  fileroot_pr = "pr_ratio_Amon_CESM2_ssp370_r11i1p1f1"
-  fileroot_tas = "tas_Amon_CESM2_ssp370_r11i1p1f1" 
-  year0 = 2015
-  nt = 86
-  fileroot_out = "GIS_NORCEPDD1_CESM2_SSP370_r11i1p1f1"
+  !! ssp370
+  !inpathname_pr = "./Forcing/CESM2/ssp370/pr_ratio"
+  !inpathname_tas = "./Forcing/CESM2/ssp370/tas_anom"
+  !fileroot_pr = "pr_ratio_Amon_CESM2_ssp370_r11i1p1f1"
+  !fileroot_tas = "tas_Amon_CESM2_ssp370_r11i1p1f1" 
+  !year0 = 2015
+  !nt = 86
+  !fileroot_out = "GIS_NORCEPDD1_CESM2_SSP370_r11i1p1f1"
   
   ! Define reference forcing
   !! 1 km MAR
@@ -95,6 +95,17 @@ program gpdd
   !filename_tasref = "Forcing/MARv3.11/artm12_ref_MARv3.11_monthly_ERA5_1960-1989_i01000m.nc"
   !outpathname = "./output" ! must exists
 
+  ! 1 km MARv3.14LC26
+  nx = 1681
+  ny = 2881
+  res = 1000.
+  res_suffix = "i01000m"
+  filename_prref = "Forcing/MARv3.14LC26/pr_ref_MARv3.14LC26-monthly-ERA5-1960-1989_01000m.nc" ! mm w.e./month
+  filename_tasref = "Forcing/MARv3.14LC26/tas_ref_MARv3.14-monthly-ERA5-1960-1989_01000m.nc" ! K
+  !filename_defmask = "Forcing/constant/sftgif_BM5_01000m.nc" ! 1
+  filename_defmask = "Forcing/constant/sftgif_promice_01000m.nc" ! 1
+  outpathname = "./output" ! must exists
+
   !! 8 km MAR
   !nx = 211
   !ny = 361
@@ -105,16 +116,16 @@ program gpdd
   !filename_defmask = "Forcing/constant/sftgif_BM5_08000m.nc" ! 1
   !outpathname = "./output" ! must exists
 
-  ! 8 km MARv3.14LC26
-  nx = 211
-  ny = 361
-  res = 8000.
-  res_suffix = "i08000m"
-  filename_prref = "Forcing/MARv3.14LC26/pr_ref_MARv3.14LC26-monthly-ERA5-1960-1989_08000m.nc" ! mm w.e./month
-  filename_tasref = "Forcing/MARv3.14LC26/tas_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc" ! K
-  !filename_defmask = "Forcing/constant/sftgif_BM5_08000m.nc" ! 1
-  filename_defmask = "Forcing/constant/sftgif_promice_08000m.nc" ! 1
-  outpathname = "./output" ! must exists
+  !! 8 km MARv3.14LC26
+  !nx = 211
+  !ny = 361
+  !res = 8000.
+  !res_suffix = "i08000m"
+  !filename_prref = "Forcing/MARv3.14LC26/pr_ref_MARv3.14LC26-monthly-ERA5-1960-1989_08000m.nc" ! mm w.e./month
+  !filename_tasref = "Forcing/MARv3.14LC26/tas_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc" ! K
+  !!filename_defmask = "Forcing/constant/sftgif_BM5_08000m.nc" ! 1
+  !filename_defmask = "Forcing/constant/sftgif_promice_08000m.nc" ! 1
+  !outpathname = "./output" ! must exists
   
   ! #########################################################################
   
