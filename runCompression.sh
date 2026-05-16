@@ -2,7 +2,7 @@
 #SBATCH --job-name=gpdd
 # CLIM2Ant: nn11016k, ISMIP7: nn5011k, 
 #SBATCH --account=nn11016k
-#SBATCH --time=03:40:00
+#SBATCH --time=02:40:00
 #SBATCH --mem-per-cpu=16G
 #SBATCH --qos=preproc
 #SBATCH --ntasks=1
@@ -13,14 +13,7 @@
 set -o errexit # Make bash exit on any error
 set -o nounset # Treat unset variables as errors
 
-module purge
-module load netCDF-Fortran/4.6.0-gompi-2022a
-module list  
-
-# run 
-#time srun ./gpdd.x 
-#time srun ./gpdd_monthly.x 
-time srun ./gpdd_monthly_inout.x 
+time srun ./compress_output_with_checks.sh
 
 # Finish the script
 exit 0

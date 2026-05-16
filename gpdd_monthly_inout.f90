@@ -67,16 +67,16 @@ program gpdd
   !fileroot_tas = "tas_Amon_CESM2_ssp370_r11i1p1f1" 
   
   fmode = 1
-  ! historical
-  inpathname_pr = "./Forcing/CESM2/historical/pr_ratio"
-  inpathname_tas = "./Forcing/CESM2/historical/tas_anom"
-  fileroot_pr = "pr_ratio_Amon_CESM2_historical_r11i1p1f1"
-  fileroot_tas = "tas_Amon_CESM2_historical_r11i1p1f1" 
-  year0 = 2014 !1950
-  nt = 1 !65
-  fileroot_out = "GIS_NORCEPDD1_CESM2_Historical_r11i1p1f1"
+  !! historical CESM2
+  !inpathname_pr = "./Forcing/CESM2/historical/pr_ratio"
+  !inpathname_tas = "./Forcing/CESM2/historical/tas_anom"
+  !fileroot_pr = "pr_ratio_Amon_CESM2_historical_r11i1p1f1"
+  !fileroot_tas = "tas_Amon_CESM2_historical_r11i1p1f1" 
+  !year0 = 2001 !1950
+  !nt = 1 !65
+  !fileroot_out = "GIS_NORCEPDD1_CESM2_Historical_r11i1p1f1"
 
-  !! ssp370
+  !! ssp370 CESM2
   !inpathname_pr = "./Forcing/CESM2/ssp370/pr_ratio"
   !inpathname_tas = "./Forcing/CESM2/ssp370/tas_anom"
   !fileroot_pr = "pr_ratio_Amon_CESM2_ssp370_r11i1p1f1"
@@ -84,6 +84,24 @@ program gpdd
   !year0 = 2015
   !nt = 86
   !fileroot_out = "GIS_NORCEPDD1_CESM2_SSP370_r11i1p1f1"
+
+  !! historical MRI-ESM2-0
+  !inpathname_pr = "./Forcing/MRI-ESM2-0/historical/pr_ratio"
+  !inpathname_tas = "./Forcing/MRI-ESM2-0/historical/tas_anom"
+  !fileroot_pr = "pr_ratio_Amon_MRI-ESM2-0_historical_r1i1p1f1"
+  !fileroot_tas = "tas_anom_Amon_MRI-ESM2-0_historical_r1i1p1f1" 
+  !year0 = 1950
+  !nt = 65
+  !fileroot_out = "GIS_NORCEPDD1_MRI-ESM2-0_Historical_r1i1p1f1"
+
+  ! ssp585 MRI-ESM2-0
+  inpathname_pr = "./Forcing/MRI-ESM2-0/ssp585/pr_ratio"
+  inpathname_tas = "./Forcing/MRI-ESM2-0/ssp585/tas_anom"
+  fileroot_pr = "pr_ratio_Amon_MRI-ESM2-0_ssp585_r1i1p1f1"
+  fileroot_tas = "tas_anom_Amon_MRI-ESM2-0_ssp585_r1i1p1f1" 
+  year0 = 2015
+  nt = 86
+  fileroot_out = "GIS_NORCEPDD1_MRI-ESM2-0_SSP585_r1i1p1f1"
   
   ! Define reference forcing
   !! 1 km MAR

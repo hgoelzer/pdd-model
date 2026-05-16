@@ -14,12 +14,12 @@ set -x
 set -e
 
 # Resolution
-#ares=01
-ares=08
+ares=01
+#ares=08
 #ares=${3}
 
-#run=output_MAR
-run=output
+run=CESM2_r11i1p1f1
+#run=MRI-ESM2-0_r1i1p1f1
 
 # Path to mask data
 datapath=../data
@@ -274,6 +274,6 @@ fi
 
 
 # Clean up
-/bin/rm masksOBS.nc maskPROM.nc af2.nc icemasks_08000m.nc 
+/bin/rm masksOBS.nc maskPROM.nc af2.nc ${maskfile}
 /bin/rm tmp_mod.nc
 

@@ -5,21 +5,20 @@
 
 # switch from 0 = mm s-1 to 1 = mm yr-1
 outputmode=0
-ares=08
-#ares=01
-
-#run=output_MAR
-run=output
+#ares=08
+ares=01
+run=CESM2_r11i1p1f1
+#run=MRI-ESM2-0_r1i1p1f1
 
 mkdir -p ${run}
 
 # time series
 echo "make time series"
-ncrcat -O ../${run}/acabf_GIS_NORCEPDD1* ${run}/acabf.nc
-ncrcat -O ../${run}/pr_GIS_NORCEPDD1* ${run}/pr.nc
-#ncrcat -O ../${run}/tas_GIS_NORCEPDD1* ${run}/tas.nc
-#ncrcat -O ../${run}/prsn_GIS_NORCEPDD1* ${run}/prsn.nc
-#ncrcat -O ../${run}/mrro_GIS_NORCEPDD1* ${run}/mrro.nc
+ncrcat -O ../output/${run}/acabf_GIS_NORCEPDD1* ${run}/acabf.nc
+ncrcat -O ../output/${run}/pr_GIS_NORCEPDD1* ${run}/pr.nc
+#ncrcat -O ../output/${run}/tas_GIS_NORCEPDD1* ${run}/tas.nc
+#ncrcat -O ../output/${run}/prsn_GIS_NORCEPDD1* ${run}/prsn.nc
+#ncrcat -O ../output/${run}/mrro_GIS_NORCEPDD1* ${run}/mrro.nc
 
 echo "monthly to yearly"
 cdo yearmean ${run}/acabf.nc ${run}/acabf_yearly.nc
