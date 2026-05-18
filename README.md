@@ -1,23 +1,71 @@
-# PDD model 
-Implements PDD model of Huybrechts and De Wolde (1999)
+# PDD model
 
-Using ncio by Alexander Robinson (git@github.com:alex-robinson/ncio.git)
+Implements the Positive Degree Day mass balance model for the Greenland ice sheet following Huybrechts and De Wolde (1999).
 
-# data and Forcing, tyipcally linked in from below
-data/
+Uses [ncio](git@github.com:alex-robinson/ncio.git) by Alexander Robinson for NetCDF I/O.
 
-Forcing/
+## Setup
 
-# Setup
-edit gpdd_monthly_inout.f90 to set forcing, timing, exp
+Forcing and grid data are typically linked or copied from the cluster storage. See `Forcing/README.txt` and `data/README.txt` for rsync instructions.
 
-make clean
+The `output/` directory must exist before running:
 
+```bash
+mkdir -p output
+```
+
+## Build
+
+```bash
 make gpdd_monthly_inout
+```
 
+On the cluster (SAGA/Betzy/Olivia) the NetCDF-Fortran paths are picked up automatically via `${EBROOTNETCDFMINFORTRAN}`. For local builds, override:
 
-# Run
-./gpdd_monthly_inout.x
+```bash
+make gpdd_monthly_inout LIB=/path/to/netcdf-fortran/lib INC=/path/to/netcdf-fortran/include
+```
 
-# Diagostics, scalar output, mass changes
-diag/
+## Configure
+
+All run settings are in a Fortran namelist file. Copy and edit one of the provided templates:
+
+| File | Scenario |
+|------|----------|
+| `params.nml` | MRI-ESM2-0 SSP585 anomaly mode (default) |
+| `params_MRI-ESM2-0_historical_anom.nml` | MRI-ESM2-0 historical |
+| `params_CESM2_ssp370_anom.nml` | CESM2 SSP370 anomaly |
+| `params_CESM2_historical_anom.nml` | CESM2 historical |
+| `params_CESM2_ssp370_direct.nml` | CESM2 SSP370 direct forcing |
+
+Key settings in each `.nml` file:
+
+```fortran
+&config
+  fmode      = 1        ! 0=direct tas/pr  1=anomaly/ratio forcing
+  outputmode = 0        ! 0=SMBMIP units (kg m-2 s-1)  1=human units (mm/month)
+  year0      = 2015     ! start year
+  nt         = 86       ! number of years
+  nx         = 1681     ! grid x size (1 km resolution)
+  ny         = 2881     ! grid y size
+  ...
+/
+```
+
+## Run
+
+```bash
+./gpdd_monthly_inout.x [params.nml]
+```
+
+If no argument is given, `params.nml` in the working directory is used. Pass a different file to switch scenarios without recompiling:
+
+```bash
+./gpdd_monthly_inout.x params_CESM2_ssp370_anom.nml
+```
+
+Output is written to `output/` — one NetCDF file per variable per year (tas, acabf, pr, mrro, prra, prsn, snicefreez, pdd, rfr).
+
+## Diagnostics
+
+Basin-integrated scalars and mass change diagnostics are in `diag/`. See `diag/README.txt` for usage.

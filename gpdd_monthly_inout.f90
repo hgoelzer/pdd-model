@@ -16,8 +16,13 @@ program gpdd
   character(len=256) :: filename_prref, filename_tasref, filename_defmask
   character(len=7)   :: res_suffix
   character(len=4)   :: cyear
+  character(len=256) :: nml_file
+  character(len=256) :: institution
+  character(len=256) :: contact_name
+  character(len=256) :: contact_email
 
-  integer :: nx, ny, nt 
+  integer :: nx, ny, nt
+  integer :: nml_unit, nml_ios, narg 
   integer :: i, j, t, year, year0, m, k
   integer :: ndims
   integer :: ncid
@@ -48,103 +53,70 @@ program gpdd
   character(len=32),  allocatable :: dimnames(:)
   integer,            allocatable :: dimlens(:)
 
-  
-  ! Setup and parameters
+  NAMELIST /config/ &
+       outputmode, fmode, &
+       inpathname_pr, inpathname_tas, &
+       fileroot_pr, fileroot_tas, &
+       year0, nt, fileroot_out, &
+       nx, ny, res, res_suffix, &
+       filename_prref, filename_tasref, filename_defmask, &
+       outpathname, &
+       institution, contact_name, contact_email
 
-  ! Write mode output units
-  ! 0 = units mm/s, K; like SMBMIP
-  ! 1 = units mm/month, C; human readible 
-  outputmode = 0 
+  ! Default configuration (overridden by namelist file)
+  outputmode    = 0
+  fmode         = 1
+  inpathname_pr = ""
+  inpathname_tas= ""
+  fileroot_pr   = ""
+  fileroot_tas  = ""
+  year0         = 2015
+  nt            = 5
+  fileroot_out  = ""
+  nx            = 1681
+  ny            = 2881
+  res           = 1000.0d0
+  res_suffix    = "i01000m"
+  filename_prref   = ""
+  filename_tasref  = ""
+  filename_defmask = ""
+  outpathname   = "./output"
+  institution   = "NORCE Research"
+  contact_name  = "Heiko Goelzer"
+  contact_email = "heig@norceresearch.no"
 
-  ! Forcing mode
-  ! 0 = pr and tas forcing
-  ! 1 = pr ratios and tas anomalies forcing, need references to add to
-  
-  !fmode = 0
-  !inpathname_pr = "./Forcing/CESM2/ssp370/pr"
-  !inpathname_tas = "./Forcing/CESM2/ssp370/tas_corr"
-  !fileroot_pr = "pr_Amon_CESM2_ssp370_r11i1p1f1"
-  !fileroot_tas = "tas_Amon_CESM2_ssp370_r11i1p1f1" 
-  
-  fmode = 1
-  !! historical CESM2
-  !inpathname_pr = "./Forcing/CESM2/historical/pr_ratio"
-  !inpathname_tas = "./Forcing/CESM2/historical/tas_anom"
-  !fileroot_pr = "pr_ratio_Amon_CESM2_historical_r11i1p1f1"
-  !fileroot_tas = "tas_Amon_CESM2_historical_r11i1p1f1" 
-  !year0 = 2001 !1950
-  !nt = 1 !65
-  !fileroot_out = "GIS_NORCEPDD1_CESM2_Historical_r11i1p1f1"
+  ! Read namelist file: use first CLI argument, else default "params.nml"
+  narg = command_argument_count()
+  if (narg >= 1) then
+     call get_command_argument(1, nml_file)
+  else
+     nml_file = "params.nml"
+  end if
+  write(*,*) "## Reading config from: ", trim(nml_file)
+  nml_unit = 10
+  open(unit=nml_unit, file=trim(nml_file), status="old", action="read", iostat=nml_ios)
+  if (nml_ios /= 0) then
+     write(*,*) "ERROR: Cannot open namelist file: ", trim(nml_file)
+     stop 1
+  end if
+  read(nml_unit, nml=config, iostat=nml_ios)
+  if (nml_ios /= 0) then
+     write(*,*) "ERROR: Cannot read &config from: ", trim(nml_file)
+     close(nml_unit)
+     stop 1
+  end if
+  close(nml_unit)
 
-  !! ssp370 CESM2
-  !inpathname_pr = "./Forcing/CESM2/ssp370/pr_ratio"
-  !inpathname_tas = "./Forcing/CESM2/ssp370/tas_anom"
-  !fileroot_pr = "pr_ratio_Amon_CESM2_ssp370_r11i1p1f1"
-  !fileroot_tas = "tas_Amon_CESM2_ssp370_r11i1p1f1" 
-  !year0 = 2015
-  !nt = 86
-  !fileroot_out = "GIS_NORCEPDD1_CESM2_SSP370_r11i1p1f1"
+  write(*,*) "## fmode=", fmode, "  outputmode=", outputmode
+  write(*,*) "## year0=", year0, "  nt=", nt
+  write(*,*) "## nx=", nx, "  ny=", ny, "  res=", res
+  write(*,*) "## res_suffix=    ", trim(res_suffix)
+  write(*,*) "## inpathname_pr= ", trim(inpathname_pr)
+  write(*,*) "## inpathname_tas=", trim(inpathname_tas)
+  write(*,*) "## fileroot_out=  ", trim(fileroot_out)
+  write(*,*) "## outpathname=   ", trim(outpathname)
+  write(*,*) "## institution=   ", trim(institution)
 
-  !! historical MRI-ESM2-0
-  !inpathname_pr = "./Forcing/MRI-ESM2-0/historical/pr_ratio"
-  !inpathname_tas = "./Forcing/MRI-ESM2-0/historical/tas_anom"
-  !fileroot_pr = "pr_ratio_Amon_MRI-ESM2-0_historical_r1i1p1f1"
-  !fileroot_tas = "tas_anom_Amon_MRI-ESM2-0_historical_r1i1p1f1" 
-  !year0 = 1950
-  !nt = 65
-  !fileroot_out = "GIS_NORCEPDD1_MRI-ESM2-0_Historical_r1i1p1f1"
-
-  ! ssp585 MRI-ESM2-0
-  inpathname_pr = "./Forcing/MRI-ESM2-0/ssp585/pr_ratio"
-  inpathname_tas = "./Forcing/MRI-ESM2-0/ssp585/tas_anom"
-  fileroot_pr = "pr_ratio_Amon_MRI-ESM2-0_ssp585_r1i1p1f1"
-  fileroot_tas = "tas_anom_Amon_MRI-ESM2-0_ssp585_r1i1p1f1" 
-  year0 = 2015
-  nt = 86
-  fileroot_out = "GIS_NORCEPDD1_MRI-ESM2-0_SSP585_r1i1p1f1"
-  
-  ! Define reference forcing
-  !! 1 km MAR
-  !nx = 1681
-  !ny = 2881
-  !res = 1000.
-  !res_suffix = "i01000m"
-  !filename_prref = "Forcing/MARv3.11/precip12_ref_MARv3.11_monthly_ERA5_1960-1989_i01000m.nc"
-  !filename_tasref = "Forcing/MARv3.11/artm12_ref_MARv3.11_monthly_ERA5_1960-1989_i01000m.nc"
-  !outpathname = "./output" ! must exists
-
-  ! 1 km MARv3.14LC26
-  nx = 1681
-  ny = 2881
-  res = 1000.
-  res_suffix = "i01000m"
-  filename_prref = "Forcing/MARv3.14LC26/pr_ref_MARv3.14LC26-monthly-ERA5-1960-1989_01000m.nc" ! mm w.e./month
-  filename_tasref = "Forcing/MARv3.14LC26/tas_ref_MARv3.14-monthly-ERA5-1960-1989_01000m.nc" ! K
-  !filename_defmask = "Forcing/constant/sftgif_BM5_01000m.nc" ! 1
-  filename_defmask = "Forcing/constant/sftgif_promice_01000m.nc" ! 1
-  outpathname = "./output" ! must exists
-
-  !! 8 km MAR
-  !nx = 211
-  !ny = 361
-  !res = 8000.
-  !res_suffix = "i08000m"
-  !filename_prref = "Forcing/MARv3.14/pr_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc" ! mm w.e./month
-  !filename_tasref = "Forcing/MARv3.14/tas_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc" ! K
-  !filename_defmask = "Forcing/constant/sftgif_BM5_08000m.nc" ! 1
-  !outpathname = "./output" ! must exists
-
-  !! 8 km MARv3.14LC26
-  !nx = 211
-  !ny = 361
-  !res = 8000.
-  !res_suffix = "i08000m"
-  !filename_prref = "Forcing/MARv3.14LC26/pr_ref_MARv3.14LC26-monthly-ERA5-1960-1989_08000m.nc" ! mm w.e./month
-  !filename_tasref = "Forcing/MARv3.14LC26/tas_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc" ! K
-  !!filename_defmask = "Forcing/constant/sftgif_BM5_08000m.nc" ! 1
-  !filename_defmask = "Forcing/constant/sftgif_promice_08000m.nc" ! 1
-  !outpathname = "./output" ! must exists
-  
   ! #########################################################################
   
   ! Allocate dimensions
@@ -210,15 +182,17 @@ program gpdd
      ! convert to rate: mm w.e. s-1
      pr_ref(:,:,:) = pr_ref(:,:,:)/31556926*12.
 
-     ndims = nc_ndims(filename_defmask,"sftgif")
-     call nc_dims(filename_defmask,"sftgif",dimnames,dimlens)
-     write(*,*) "ndims= ", ndims
-     write(*,*) "dimnames= ", dimnames
-     write(*,*) "dimlens=  ", dimlens 
-     call nc_open(filename_defmask, ncid, .FALSE.)
-     call nc_read(filename_defmask, "sftgif",def_mask) ! 1
-     call nc_close(ncid)
   end if
+
+  ! Read Greenland mask (required for both fmodes)
+  ndims = nc_ndims(filename_defmask,"sftgif")
+  call nc_dims(filename_defmask,"sftgif",dimnames,dimlens)
+  write(*,*) "ndims= ", ndims
+  write(*,*) "dimnames= ", dimnames
+  write(*,*) "dimlens=  ", dimlens
+  call nc_open(filename_defmask, ncid, .FALSE.)
+  call nc_read(filename_defmask, "sftgif",def_mask) ! 1
+  call nc_close(ncid)
 
 
   ! Main year loop
@@ -319,41 +293,57 @@ program gpdd
     END DO
           
      ! Write files
-     if (outputmode == 0) then        
+     if (outputmode == 0) then
         call write_nc_file(tas, res, year, outpathname, &
-             fileroot_out, "tas", "K", "air_temperature")
+             fileroot_out, "tas", "K", "air_temperature", &
+             institution, contact_name, contact_email)
         call write_nc_file(smb, res, year, outpathname, &
-             fileroot_out, "acabf", "kg m-2 s-1", "land_ice_surface_specific_mass_balance_flux")
+             fileroot_out, "acabf", "kg m-2 s-1", "land_ice_surface_specific_mass_balance_flux", &
+             institution, contact_name, contact_email)
         call write_nc_file(pr, res, year, outpathname, &
-             fileroot_out, "pr", "kg m-2 s-1", "precipitation_flux")
+             fileroot_out, "pr", "kg m-2 s-1", "precipitation_flux", &
+             institution, contact_name, contact_email)
         call write_nc_file(abl, res, year, outpathname, &
-             fileroot_out, "mrro", "kg m-2 s-1", "runoff_flux")
+             fileroot_out, "mrro", "kg m-2 s-1", "runoff_flux", &
+             institution, contact_name, contact_email)
         call write_nc_file(rain, res, year, outpathname, &
-             fileroot_out, "prra", "kg m-2 s-1", "rainfall_flux")
+             fileroot_out, "prra", "kg m-2 s-1", "rainfall_flux", &
+             institution, contact_name, contact_email)
         call write_nc_file(snow, res, year, outpathname, &
-             fileroot_out, "prsn", "kg m-2 s-1", "snowfall_flux")
+             fileroot_out, "prsn", "kg m-2 s-1", "snowfall_flux", &
+             institution, contact_name, contact_email)
         call write_nc_file(sir, res, year, outpathname, &
-             fileroot_out, "snicefreez", "kg m-2 s-1", "surface_snow_and_ice_refreezing_flux")
+             fileroot_out, "snicefreez", "kg m-2 s-1", "surface_snow_and_ice_refreezing_flux", &
+             institution, contact_name, contact_email)
      else if (outputmode == 1) then
         call write_nc_file(tas, res, year, outpathname, &
-             fileroot_out, "tas", "C", "air_temperature")
+             fileroot_out, "tas", "C", "air_temperature", &
+             institution, contact_name, contact_email)
         call write_nc_file(smb, res, year, outpathname, &
-             fileroot_out, "acabf", "kg m-2 yr-1", "land_ice_surface_specific_mass_balance_flux")
+             fileroot_out, "acabf", "kg m-2 yr-1", "land_ice_surface_specific_mass_balance_flux", &
+             institution, contact_name, contact_email)
         call write_nc_file(pr, res, year, outpathname, &
-             fileroot_out, "pr", "kg m-2 yr-1", "precipitation_flux")
+             fileroot_out, "pr", "kg m-2 yr-1", "precipitation_flux", &
+             institution, contact_name, contact_email)
         call write_nc_file(abl, res, year, outpathname, &
-             fileroot_out, "mrro", "kg m-2 yr-1", "runoff_flux")
+             fileroot_out, "mrro", "kg m-2 yr-1", "runoff_flux", &
+             institution, contact_name, contact_email)
         call write_nc_file(rain, res, year, outpathname, &
-             fileroot_out, "prra", "kg m-2 yr-1", "rainfall_flux")
+             fileroot_out, "prra", "kg m-2 yr-1", "rainfall_flux", &
+             institution, contact_name, contact_email)
         call write_nc_file(snow, res, year, outpathname, &
-             fileroot_out, "prsn", "kg m-2 yr-1", "snowfall_flux")
+             fileroot_out, "prsn", "kg m-2 yr-1", "snowfall_flux", &
+             institution, contact_name, contact_email)
         call write_nc_file(sir, res, year, outpathname, &
-             fileroot_out, "snicefreez", "kg m-2 yr-1", "surface_snow_and_ice_refreezing_flux")
+             fileroot_out, "snicefreez", "kg m-2 yr-1", "surface_snow_and_ice_refreezing_flux", &
+             institution, contact_name, contact_email)
      end if
      call write_nc_file(pdd, res, year, outpathname, &
-          fileroot_out, "pdd", "1", "positive_degree_days")
+          fileroot_out, "pdd", "1", "positive_degree_days", &
+          institution, contact_name, contact_email)
      call write_nc_file(rfr, res, year, outpathname, &
-          fileroot_out, "rfr", "1", "rain_fraction")
+          fileroot_out, "rfr", "1", "rain_fraction", &
+          institution, contact_name, contact_email)
      
      ! update timer
      t = t+1
@@ -387,7 +377,8 @@ program gpdd
   
 contains
 
-  subroutine write_nc_file(avar,res,year,outpathname,fileroot,varname,units,longname)
+  subroutine write_nc_file(avar,res,year,outpathname,fileroot,varname,units,longname, &
+                            institution,contact_name,contact_email)
     ! Write variable to netcdf file on ISMIP6 grid
 
     use ncio
@@ -397,13 +388,16 @@ contains
     INTEGER, PARAMETER :: dp = KIND(1.0D0)  ! Kind of double precision numbers.
 
     REAL(dp), INTENT(IN)  :: avar(:,:,:)
-    REAL(dp), INTENT(IN)  :: res ! 1000., 8000. 
+    REAL(dp), INTENT(IN)  :: res ! 1000., 8000.
     INTEGER, INTENT(IN)  :: year
     character(len=*), INTENT(IN) :: outpathname
     character(len=*), INTENT(IN) :: fileroot
     character(len=*), INTENT(IN) :: varname
     character(len=*), INTENT(IN) :: units
     character(len=*), INTENT(IN) :: longname
+    character(len=*), INTENT(IN) :: institution
+    character(len=*), INTENT(IN) :: contact_name
+    character(len=*), INTENT(IN) :: contact_email
     ! Internal variables
     character(len=256) :: cyear
     character(len=256) :: filename
@@ -415,15 +409,15 @@ contains
     !write(*,*) "### root: ", fileroot
     !write(*,*) "### cyear: ", cyear
     filename = trim(outpathname) // "/" // trim(varname) &
-         // "_" // trim(fileroot) // "_" // trim(cyear) // ".nc" 
+         // "_" // trim(fileroot) // "_" // trim(cyear) // ".nc"
     write(*,*) "### output file: ", trim(filename)
 
     ! Create the netcdf file, write global attributes
     call nc_create(filename,overwrite=.TRUE.,netcdf4=.TRUE.)
     call nc_write_attr(filename,"title","NORCE-PDD output")
-    call nc_write_attr(filename,"institution", "NORCE Research")
-    call nc_write_attr(filename,"contact_name", "Heiko Goelzer")
-    call nc_write_attr(filename,"contact_email", "heig@norceresearch.no")
+    call nc_write_attr(filename,"institution", trim(institution))
+    call nc_write_attr(filename,"contact_name", trim(contact_name))
+    call nc_write_attr(filename,"contact_email", trim(contact_email))
     call nc_write_attr(filename,"grid_information", "ISMIP6 grid, epsg:3413")
 
     ! Write the dimensions (x, y, time), defined inline

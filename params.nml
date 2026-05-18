@@ -1,0 +1,36 @@
+&config
+  ! Output mode: 0=SMBMIP units (kg m-2 s-1, K)   1=human units (mm/month, C)
+  outputmode = 0
+  ! Forcing mode: 0=direct tas/pr   1=anomaly/ratio (needs reference files)
+  fmode = 1
+
+  ! Forcing paths and filename roots
+  inpathname_pr  = "./Forcing/MRI-ESM2-0/ssp585/pr_ratio"
+  inpathname_tas = "./Forcing/MRI-ESM2-0/ssp585/tas_anom"
+  fileroot_pr    = "pr_ratio_Amon_MRI-ESM2-0_ssp585_r1i1p1f1"
+  fileroot_tas   = "tas_anom_Amon_MRI-ESM2-0_ssp585_r1i1p1f1"
+
+  ! Run control
+  year0        = 2015
+  nt           = 5
+  fileroot_out = "GIS_NORCEPDD1_MRI-ESM2-0_SSP585_r1i1p1f1"
+
+  ! Grid: 1 km MARv3.14LC26
+  nx         = 1681
+  ny         = 2881
+  res        = 1000.0
+  res_suffix = "i01000m"
+
+  ! Reference files (required when fmode=1)
+  filename_prref   = "Forcing/MARv3.14LC26/pr_ref_MARv3.14LC26-monthly-ERA5-1960-1989_01000m.nc"
+  filename_tasref  = "Forcing/MARv3.14LC26/tas_ref_MARv3.14-monthly-ERA5-1960-1989_01000m.nc"
+  filename_defmask = "Forcing/constant/sftgif_promice_01000m.nc"
+
+  ! Output directory (must exist before run)
+  outpathname = "./output"
+
+  ! Output file metadata
+  institution   = "NORCE Research"
+  contact_name  = "Heiko Goelzer"
+  contact_email = "heig@norceresearch.no"
+/

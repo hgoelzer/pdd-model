@@ -1,0 +1,30 @@
+&config
+  outputmode = 0
+  ! fmode=0: read absolute tas and pr directly (no reference files needed)
+  fmode = 0
+
+  inpathname_pr  = "./Forcing/CESM2/ssp370/pr"
+  inpathname_tas = "./Forcing/CESM2/ssp370/tas_corr"
+  fileroot_pr    = "pr_Amon_CESM2_ssp370_r11i1p1f1"
+  fileroot_tas   = "tas_Amon_CESM2_ssp370_r11i1p1f1"
+
+  year0        = 2015
+  nt           = 86
+  fileroot_out = "GIS_NORCEPDD1_CESM2_SSP370_direct_r11i1p1f1"
+
+  nx         = 1681
+  ny         = 2881
+  res        = 1000.0
+  res_suffix = "i01000m"
+
+  ! filename_prref and filename_tasref not used in fmode=0
+  filename_prref   = ""
+  filename_tasref  = ""
+  filename_defmask = "Forcing/constant/sftgif_promice_01000m.nc"
+
+  outpathname = "./output"
+
+  institution   = "NORCE Research"
+  contact_name  = "Heiko Goelzer"
+  contact_email = "heig@norceresearch.no"
+/
