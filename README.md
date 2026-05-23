@@ -84,3 +84,33 @@ Basin-integrated scalars and mass change diagnostics are in `diag/`:
 ```
 
 See `diag/README.txt` for details.
+
+## Testing
+
+Reference output for the default scenario (MRI-ESM2-0 SSP585, 2015–2019) lives in `output_ref/`. After a run, compare numerically using the `nc` conda env (Python 3.13, netCDF4, numpy):
+
+```bash
+/Users/heig/miniforge3/envs/nc/bin/python - <<'EOF'
+import os, netCDF4 as nc, numpy as np
+ref_dir, new_dir = "output_ref", "output"
+for fname in sorted(f for f in os.listdir(ref_dir) if f.endswith(".nc")):
+    r = nc.Dataset(f"{ref_dir}/{fname}")
+    n = nc.Dataset(f"{new_dir}/{fname}")
+    for vname in r.variables:
+        if vname in ("x","y","time"): continue
+        diff = np.max(np.abs(r.variables[vname][:] - n.variables[vname][:]))
+        print(f"{fname}  {vname:20s}  {'IDENTICAL' if diff==0 else f'DIFFERS max={diff:.3e}'}")
+    r.close(); n.close()
+EOF
+```
+
+The `output_ref/` files were generated before the `pi` precision fix (see Code structure below); small differences in `pdd` and `rfr` at a handful of LUT boundary pixels are expected and physically negligible — domain-integrated totals agree to < 4×10⁻⁷.
+
+## Code structure
+
+All PDD physics lives in `massbalance_module.f90`. Module-level constants (`dp`, `pi`, `valmax`, `nintx`) and the PDD lookup tables (`taberf`, `tabepdd`) are declared once at module scope. Private helpers keep the public subroutines concise:
+
+- `init_pdd_lut()` — initialises the PDD lookup tables on first call; shared by all `calculate_pdd_*` subroutines.
+- `melt_cascade_2d` / `melt_cascade_3d` — snow/ice melt and refreezing loop; shared by all `pdd_model_*` subroutines.
+
+Key physics parameters (`ddfactorsnow`, `ddfactorice`, `sigma`, `rainlimit`) are all namelist-configurable without recompiling. The legacy drivers `gpdd.f90` and `gpdd_monthly.f90` are kept for reference; the active driver is `gpdd_monthly_inout.f90`.

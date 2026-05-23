@@ -151,7 +151,7 @@ program gpdd
        tp(:,:,:) = tp(:,:,:)/1000.*rhof/rhoi
 
        ! Model call
-       call pdd_model_greenland_total_monthly(nx, ny, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
+       call pdd_model_greenland_total_monthly(nx, ny, 0.003d0, 0.008d0, 4.5d0, 1.0d0, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
 
        !! Update output container
        tma3(:,:,1) = tma(:,:)

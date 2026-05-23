@@ -149,7 +149,7 @@ program gpdd
 
        ! Model call
        !call pdd_model_greenland_total_yearly(nx, ny, tpa, t2m, t2j, smb)
-       call pdd_model_greenland_total_yearly(nx, ny, tpa, t2m, t2j, smb, snow, rain, sir, abl, pdd, rfr)
+       call pdd_model_greenland_total_yearly(nx, ny, 0.003d0, 0.008d0, 4.5d0, 1.0d0, tpa, t2m, t2j, smb, snow, rain, sir, abl, pdd, rfr)
        ! Update output container
        smb3(:,:,t) = smb(:,:)
        tpa3(:,:,t) = tpa(:,:)
