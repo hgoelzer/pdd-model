@@ -4,7 +4,7 @@ MODULE massbalance_module
 
 CONTAINS
 
-  SUBROUTINE pdd_model_greenland_total_monthly_inout(nx, ny, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
+  SUBROUTINE pdd_model_greenland_total_monthly_inout(nx, ny, ddfactorsnow, ddfactorice, sigma, rainlimit, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
     ! Positive degree day model, uddated by Heiko Goelzer, Mar 2026
     ! Implements Greenland pdd model of Huybrechts and De Wolde 1999
     ! Forcing with total monthly fields, output monthly data
@@ -32,11 +32,14 @@ CONTAINS
     REAL(dp), INTENT(OUT) :: pdd(nx,ny,12)
     REAL(dp), INTENT(OUT) :: rfr(nx,ny,12)
 
+    REAL(dp), INTENT(IN)                :: ddfactorsnow
+    REAL(dp), INTENT(IN)                :: ddfactorice
+    REAL(dp), INTENT(IN)                :: sigma
+    REAL(dp), INTENT(IN)                :: rainlimit
+
     ! Local variables
     REAL(dp), allocatable               :: tm(:,:,:)
 
-    REAL(dp), PARAMETER                 :: ddfactorsnow = 0.00297 ! JJF ref
-    REAL(dp), PARAMETER                 :: ddfactorice = 0.00791 ! JJF ref
     REAL(dp), PARAMETER                 :: pmax = 0.3 ! See update in Janssens and Huybrechts 2000
  
     INTEGER                             :: i, j, k
@@ -51,7 +54,7 @@ CONTAINS
     ! Determine number of positive degree days per year and rain fraction
     !call calculate_pdd_monthly_inout(nx, ny, tm, pdd, rfr)
     ! With parameterised seasonal cycle
-    call calculate_pdd_monthly_inout_taj(nx, ny, tm, pdd, rfr)
+    call calculate_pdd_monthly_inout_taj(nx, ny, sigma, rainlimit, tm, pdd, rfr)
 
     ! Distinguish rain and snow according to rain fraction
     rain = tp * rfr
@@ -109,7 +112,7 @@ CONTAINS
 
 
 
-  SUBROUTINE pdd_model_greenland_total_monthly(nx, ny, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
+  SUBROUTINE pdd_model_greenland_total_monthly(nx, ny, ddfactorsnow, ddfactorice, sigma, rainlimit, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
     ! Positive degree day model, uddated by Heiko Goelzer, Feb 2022
     ! Implements Greenland pdd model of Huybrechts and De Wolde 1999
     ! Forcing with total monthly fields
@@ -137,12 +140,15 @@ CONTAINS
     REAL(dp), INTENT(OUT) :: pdd(nx,ny)
     REAL(dp), INTENT(OUT) :: rfr(nx,ny)
 
+    REAL(dp), INTENT(IN)                :: ddfactorsnow
+    REAL(dp), INTENT(IN)                :: ddfactorice
+    REAL(dp), INTENT(IN)                :: sigma
+    REAL(dp), INTENT(IN)                :: rainlimit
+
     ! Local variables
     REAL(dp), allocatable               :: tm(:,:,:)
     REAL(dp), allocatable               :: tpa(:,:)
 
-    REAL(dp), PARAMETER                 :: ddfactorsnow = 0.003
-    REAL(dp), PARAMETER                 :: ddfactorice = 0.008
     REAL(dp), PARAMETER                 :: pmax = 0.3 ! See update in Janssens and Huybrechts 2000
  
     INTEGER                             :: i, j
@@ -156,7 +162,7 @@ CONTAINS
     tm = t2m - 273.15
 
     ! Determine number of positive degree days per year and rain fraction
-    call calculate_pdd_monthly(nx, ny, tm, pdd, rfr)
+    call calculate_pdd_monthly(nx, ny, sigma, rainlimit, tm, pdd, rfr)
 
     ! total annual precip
     tpa(:,:) = SUM(tp(:,:,:),dim=3)
@@ -216,7 +222,7 @@ CONTAINS
 
 
 
-  SUBROUTINE pdd_model_greenland_total_yearly(nx, ny, acc, t2m, t2j, smb, snow, rain, sir, abl, pdd, rfr)
+  SUBROUTINE pdd_model_greenland_total_yearly(nx, ny, ddfactorsnow, ddfactorice, sigma, rainlimit, acc, t2m, t2j, smb, snow, rain, sir, abl, pdd, rfr)
     ! Positive degree day model, uddated by Heiko Goelzer, Feb 2022
     ! Implements Greenland pdd model of Huybrechts and De Wolde 1999
     ! Forcing with total fields, not anomalies
@@ -247,14 +253,17 @@ CONTAINS
     REAL(dp), INTENT(OUT) :: pdd(nx,ny)
     REAL(dp), INTENT(OUT) :: rfr(nx,ny)
 
+    REAL(dp), INTENT(IN)                :: ddfactorsnow
+    REAL(dp), INTENT(IN)                :: ddfactorice
+    REAL(dp), INTENT(IN)                :: sigma
+    REAL(dp), INTENT(IN)                :: rainlimit
+
     ! Local variables
     REAL(dp), allocatable               :: tma(:,:)
     REAL(dp), allocatable               :: tmj(:,:)
 
-    REAL(dp), PARAMETER                 :: ddfactorsnow = 0.003
-    REAL(dp), PARAMETER                 :: ddfactorice = 0.008
     REAL(dp), PARAMETER                 :: pmax = 0.3 ! See update in Janssens and Huybrechts 2000
- 
+
     INTEGER                             :: i, j
     REAL(dp)                            :: pdds, ablv, sifm
 
@@ -269,7 +278,7 @@ CONTAINS
     tmj = t2j - 273.15
 
     ! Determine number of positive degree days per year and rain fraction
-    call calculate_pdd_yearly(nx, ny, tma, tmj, pdd, rfr)
+    call calculate_pdd_yearly(nx, ny, sigma, rainlimit, tma, tmj, pdd, rfr)
 
     ! Distinguish rain and snow according to rain fraction
     rain = acc * rfr
@@ -329,7 +338,7 @@ CONTAINS
 
 
 
-  SUBROUTINE massbalance_pdd_model_greenland(nx, ny, lat, Hs, acc_PD, T_anomaly, smb)
+  SUBROUTINE massbalance_pdd_model_greenland(nx, ny, ddfactorsnow, ddfactorice, sigma, rainlimit, lat, Hs, acc_PD, T_anomaly, smb)
     ! Positive degree day model, added by Heiko Goelzer, Jan 2017
     ! Implements Greenland pdd model of Huybrechts and De Wolde 1999
 
@@ -370,10 +379,13 @@ CONTAINS
     REAL(dp), allocatable               :: s_prec(:,:)
     REAL(dp), allocatable               :: h_inv(:,:)
 
-    REAL(dp), PARAMETER                 :: ddfactorsnow = 0.003
-    REAL(dp), PARAMETER                 :: ddfactorice = 0.008
+    REAL(dp), INTENT(IN)                :: ddfactorsnow
+    REAL(dp), INTENT(IN)                :: ddfactorice
+    REAL(dp), INTENT(IN)                :: sigma
+    REAL(dp), INTENT(IN)                :: rainlimit
+
     REAL(dp), PARAMETER                 :: pmax = 0.3 ! See update in Janssens and Huybrechts 2000
- 
+
     INTEGER                             :: i, j
     REAL(dp)                            :: pdds, ablv, sifm
 
@@ -416,7 +428,7 @@ CONTAINS
     acc = acc_PD * (1.+s_prec)**T_anomaly
 
     ! Determine number of positive degree days per year and rain fraction
-    call calculate_pdd_yearly(nx, ny, tma, tmj, pdd, rfr)
+    call calculate_pdd_yearly(nx, ny, sigma, rainlimit, tma, tmj, pdd, rfr)
 
     ! Distinguish rain and snow according to rain fraction
     rain = acc * rfr
@@ -473,7 +485,7 @@ CONTAINS
 
 
 
-  SUBROUTINE calculate_pdd_yearly(nx, ny, tma, tmj, pdd, rfr)
+  SUBROUTINE calculate_pdd_yearly(nx, ny, sigma, rainlimit, tma, tmj, pdd, rfr)
     ! Positive degree day model, added by Heiko Goelzer, Jan 2017
     ! PDD model from Huybrechts and De Wolde 1999
     ! Seasonal cycle is parametised using annual mean and july temperature
@@ -495,10 +507,11 @@ CONTAINS
     REAL(dp), INTENT(OUT)  :: rfr(nx,ny)
 
     ! Local variables:
+    REAL(dp), INTENT(IN)      :: sigma
+    REAL(dp), INTENT(IN)      :: rainlimit
+
     LOGICAL, SAVE             :: first_call = .TRUE.
     INTEGER                   :: i, j, k
-    REAL(dp), PARAMETER       :: sigma = 4.5 
-    REAL(dp), PARAMETER       :: rainlimit = 1.0
     REAL(dp), PARAMETER       :: valmax = 6.0
     INTEGER,  PARAMETER       :: nintx=1200
     REAL(dp), allocatable     :: pdd12(:,:,:)
@@ -581,7 +594,7 @@ CONTAINS
 
 
 
-  SUBROUTINE calculate_pdd_monthly(nx, ny, tm, pdd, rfr)
+  SUBROUTINE calculate_pdd_monthly(nx, ny, sigma, rainlimit, tm, pdd, rfr)
     ! Positive degree day model, added by Heiko Goelzer, Feb 2022
     ! PDD model from Huybrechts and De Wolde 1999
     ! Monthly input fields
@@ -602,10 +615,11 @@ CONTAINS
     REAL(dp), INTENT(OUT)  :: rfr(nx,ny)
 
     ! Local variables:
+    REAL(dp), INTENT(IN)      :: sigma
+    REAL(dp), INTENT(IN)      :: rainlimit
+
     LOGICAL, SAVE             :: first_call = .TRUE.
     INTEGER                   :: i, j, k
-    REAL(dp), PARAMETER       :: sigma = 4.5 
-    REAL(dp), PARAMETER       :: rainlimit = 1.0
     REAL(dp), PARAMETER       :: valmax = 6.0
     INTEGER,  PARAMETER       :: nintx=1200
     REAL(dp), allocatable     :: pdd12(:,:,:)
@@ -770,7 +784,7 @@ CONTAINS
   END SUBROUTINE calculate_pdd_monthly_inout
 
 
-  SUBROUTINE calculate_pdd_monthly_inout_taj(nx, ny, tm12, pdd12, rfr12)
+  SUBROUTINE calculate_pdd_monthly_inout_taj(nx, ny, sigma, rainlimit, tm12, pdd12, rfr12)
     ! Positive degree day model, added by Heiko Goelzer, Mar 2026
     ! PDD model from Huybrechts and De Wolde 1999
     ! Monthly input and output fields
@@ -793,10 +807,11 @@ CONTAINS
     REAL(dp), INTENT(OUT)  :: rfr12(nx,ny,12)
 
     ! Local variables:
+    REAL(dp), INTENT(IN)      :: sigma
+    REAL(dp), INTENT(IN)      :: rainlimit
+
     LOGICAL, SAVE             :: first_call = .TRUE.
     INTEGER                   :: i, j, k
-    REAL(dp), PARAMETER       :: sigma = 4.5 
-    REAL(dp), PARAMETER       :: rainlimit = 1.0
     REAL(dp), PARAMETER       :: valmax = 6.0
     INTEGER,  PARAMETER       :: nintx=1200
     REAL(dp)                  :: help1, help2, help3, ampl, tempnorm, ntemp, fac2, tma

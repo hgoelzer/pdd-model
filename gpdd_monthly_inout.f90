@@ -22,6 +22,7 @@ program gpdd
   character(len=256) :: contact_email
 
   integer :: nx, ny, nt
+  double precision :: ddfactorsnow, ddfactorice, sigma, rainlimit
   integer :: nml_unit, nml_ios, narg 
   integer :: i, j, t, year, year0, m, k
   integer :: ndims
@@ -61,7 +62,8 @@ program gpdd
        nx, ny, res, res_suffix, &
        filename_prref, filename_tasref, filename_defmask, &
        outpathname, &
-       institution, contact_name, contact_email
+       institution, contact_name, contact_email, &
+       ddfactorsnow, ddfactorice, sigma, rainlimit
 
   ! Default configuration (overridden by namelist file)
   outputmode    = 0
@@ -84,6 +86,10 @@ program gpdd
   institution   = "NORCE Research"
   contact_name  = "Heiko Goelzer"
   contact_email = "heig@norceresearch.no"
+  ddfactorsnow  = 0.00297d0
+  ddfactorice   = 0.00791d0
+  sigma         = 4.5d0
+  rainlimit     = 1.0d0
 
   ! Read namelist file: use first CLI argument, else default "params.nml"
   narg = command_argument_count()
@@ -250,7 +256,7 @@ program gpdd
      pr(:,:,:) = pr(:,:,:)*31556926/rhoi/12.
 
      ! Model call
-     call pdd_model_greenland_total_monthly_inout(nx, ny, pr, tas, smb, snow, rain, sir, abl, pdd, rfr)
+     call pdd_model_greenland_total_monthly_inout(nx, ny, ddfactorsnow, ddfactorice, sigma, rainlimit, pr, tas, smb, snow, rain, sir, abl, pdd, rfr)
 
      ! Convert for output depending on outputmode
      if (outputmode == 0) then

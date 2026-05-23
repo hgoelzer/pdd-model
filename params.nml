@@ -33,4 +33,10 @@
   institution   = "NORCE Research"
   contact_name  = "Heiko Goelzer"
   contact_email = "heig@norceresearch.no"
+
+  ! PDD physics parameters
+  ddfactorsnow = 0.00297
+  ddfactorice  = 0.00791
+  sigma        = 4.5
+  rainlimit    = 1.0
 /
