@@ -42,12 +42,18 @@ Key settings in each `.nml` file:
 
 ```fortran
 &config
-  fmode      = 1        ! 0=direct tas/pr  1=anomaly/ratio forcing
-  outputmode = 0        ! 0=SMBMIP units (kg m-2 s-1)  1=human units (mm/month)
-  year0      = 2015     ! start year
-  nt         = 86       ! number of years
-  nx         = 1681     ! grid x size (1 km resolution)
-  ny         = 2881     ! grid y size
+  fmode        = 1        ! 0=direct tas/pr  1=anomaly/ratio forcing
+  outputmode   = 0        ! 0=SMBMIP units (kg m-2 s-1)  1=human units (mm/month)
+  year0        = 2015     ! start year
+  nt           = 86       ! number of years
+  nx           = 1681     ! grid x size (1 km resolution)
+  ny           = 2881     ! grid y size
+
+  ! PDD physics — tune without recompiling
+  ddfactorsnow = 0.00297  ! degree-day factor for snow melt (m/yr/PDD)
+  ddfactorice  = 0.00791  ! degree-day factor for ice melt  (m/yr/PDD)
+  sigma        = 4.5      ! temperature variability (°C)
+  rainlimit    = 1.0      ! rain/snow partitioning threshold (°C)
   ...
 /
 ```
@@ -68,4 +74,13 @@ Output is written to `output/` — one NetCDF file per variable per year (tas, a
 
 ## Diagnostics
 
-Basin-integrated scalars and mass change diagnostics are in `diag/`. See `diag/README.txt` for usage.
+Basin-integrated scalars and mass change diagnostics are in `diag/`:
+
+```bash
+./diag/makeDiag.sh      # generate diagnostic files
+./diag/calc_scalars.sh  # basin-integrated scalar output
+./diag/get_dM.sh        # mass change time series
+./diag/get_dMap.sh      # mass change maps
+```
+
+See `diag/README.txt` for details.
