@@ -1,8 +1,12 @@
 gpdd_monthly_inout.x
+gpdd_monthly_inout_mpi.x
 gpdd_monthly.x
 gpdd.x
+test_massbalance.x
 slurm*
 *.tmp
 *.nc
+diag/*.pdf
+diag/*.png
 
 CLAUDE.md
