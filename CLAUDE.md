@@ -4,37 +4,54 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Build
 
-The Makefile targets cluster environments (SAGA/Betzy/Olivia) via `${EBROOTNETCDFMINFORTRAN}`. For local development on this Mac, NetCDF-Fortran lives in a conda environment (`pdd-build`):
-
+**Local Mac** (conda env `pdd-build`):
 ```bash
 make gpdd_monthly_inout LIB=/Users/heig/miniforge3/envs/pdd-build/lib INC=/Users/heig/miniforge3/envs/pdd-build/include
 ```
+The conda env was created with `conda create -n pdd-build netcdf-fortran -c conda-forge`. Debug build: append `debug=1`.
 
-Debug build: append `debug=1`. The conda env was created with `conda create -n pdd-build netcdf-fortran -c conda-forge`.
-
+**Cluster (Betzy / Olivia)** — both use the same module as of 2026-05:
 ```bash
+source setenv.sh && make gpdd_monthly_inout
 make clean   # removes executables, obj/*.o, obj/*.mod
 ```
+`setenv.sh` is the single source of truth for the module environment (`netCDF-Fortran/4.6.1-gompi-2024a`). Source it before compiling — `runPDD` sources it automatically via `SLURM_SUBMIT_DIR`.
+
+**Compiler quirk**: gfortran 13.3.0 (gompi-2024a on Betzy) treats lines >132 chars as a hard error (`-Werror=line-truncation`). Fixed with `-ffree-line-length-none` in `DFLAGS` (already in Makefile). The Mac conda gfortran doesn't enforce this.
+
+**Makefile `LIBC`**: on clusters, netCDF-C and netCDF-Fortran live in separate module paths. `LIBC = $(if ${EBROOTNETCDF},${EBROOTNETCDF}/lib,$(LIB))` captures the C library path for `-L` and `-Wl,-rpath`. On Mac (conda) both libraries are co-located in `LIB`.
 
 ## Running
 
-The active driver is `gpdd_monthly_inout.x`. Configuration is read at runtime from a Fortran namelist file:
-
+**Local Mac:**
 ```bash
 DYLD_LIBRARY_PATH=/Users/heig/miniforge3/envs/pdd-build/lib ./gpdd_monthly_inout.x [params.nml]
 ```
 
-If no argument is given, `params.nml` in the working directory is used. To switch scenarios pass a different `.nml` file — no recompile needed.
+**Cluster (SLURM):**
+```bash
+sbatch runPDD params_CESM2_historical_anom_16km.nml   # namelist as positional arg
+```
+Do NOT use `sbatch --export=NML=...` — restricting the exported environment breaks srun's ability to see module-set `LD_LIBRARY_PATH`. Pass the namelist as a positional argument instead; `runPDD` defaults to `params.nml` if none given.
+
+**First-time setup on a new cluster directory** — replaces `Forcing/` and `output/` with symlinks to work storage:
+```bash
+./setup_work.sh   # creates /cluster/work/users/$USER/pdd/<setup>/{Forcing,output}
+```
+
+The active driver is `gpdd_monthly_inout.x`. To switch scenarios pass a different `.nml` file — no recompile needed.
 
 **Available namelist files:**
 
-| File | Scenario |
-|------|----------|
-| `params.nml` | MRI-ESM2-0 SSP585 anomaly mode (default) |
-| `params_MRI-ESM2-0_historical_anom.nml` | MRI-ESM2-0 historical anomaly |
-| `params_CESM2_ssp370_anom.nml` | CESM2 SSP370 anomaly |
-| `params_CESM2_historical_anom.nml` | CESM2 historical anomaly |
-| `params_CESM2_ssp370_direct.nml` | CESM2 SSP370 direct tas/pr (fmode=0) |
+| File | Grid | Scenario |
+|------|------|----------|
+| `params.nml` | 1 km | MRI-ESM2-0 SSP585 anomaly (default) |
+| `params_MRI-ESM2-0_historical_anom.nml` | 1 km | MRI-ESM2-0 historical |
+| `params_CESM2_ssp370_anom.nml` | 1 km | CESM2 SSP370 anomaly |
+| `params_CESM2_historical_anom.nml` | 1 km | CESM2 historical |
+| `params_CESM2_ssp370_direct.nml` | 1 km | CESM2 SSP370 direct (fmode=0) |
+| `params_CESM2_historical_anom_16km.nml` | 16 km | CESM2 historical, acabf only (outputvars=1) |
+| `params_MRI-ESM2-0_historical_anom_16km.nml` | 16 km | MRI-ESM2-0 historical, acabf only |
 
 **Namelist parameters** (all in `&config` group):
 - `fmode` — 0 = direct tas/pr forcing; 1 = anomaly/ratio forcing (needs reference files)
