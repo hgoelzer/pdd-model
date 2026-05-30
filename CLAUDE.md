@@ -38,6 +38,9 @@ Do NOT use `sbatch --export=NML=...` — restricting the exported environment br
 ```bash
 ./setup_work.sh   # creates /cluster/work/users/$USER/pdd/<setup>/{Forcing,output}
 ```
+`setup_work.sh` targets `/cluster/work/users/$USER/...` (Betzy layout). On Olivia the work storage is project-based (`/cluster/work/projects/nn5011k/heig/pdd/`), so create symlinks manually there.
+
+**Olivia**: use `runPDD_oli` instead of `runPDD` (`--partition=small`, no `--qos`). Olivia requires `--account=` and `--time=` explicitly in sbatch calls. No `devel` partition — use `small` for testing. Results bit-identical to Betzy (verified 2026-05-30).
 
 The active driver is `gpdd_monthly_inout.x`. To switch scenarios pass a different `.nml` file — no recompile needed.
 
@@ -57,6 +60,7 @@ The active driver is `gpdd_monthly_inout.x`. To switch scenarios pass a differen
 - `fmode` — 0 = direct tas/pr forcing; 1 = anomaly/ratio forcing (needs reference files)
 - `outputmode` — 0 = SMBMIP units (kg m-2 s-1, K); 1 = human units (mm/month, C)
 - `outputvars` — 0 = full output (all 9 variables, default); 1 = acabf only (faster for development)
+- `outputfreq` — 0 = monthly output, 12 time steps per year file (default); 1 = annual mean output, 1 time step per year file (~12× smaller files; use for calibration ensembles)
 - `year0`, `nt` — start year and number of years
 - `inpathname_pr/tas`, `fileroot_pr/tas`, `res_suffix` — forcing file location and naming pattern
 - `nx`, `ny`, `res` — grid dimensions and resolution (1681×2881 at 1 km; 211×361 at 8 km; 106×181 at 16 km)
@@ -67,6 +71,7 @@ The active driver is `gpdd_monthly_inout.x`. To switch scenarios pass a differen
 - `ddfactorsnow`, `ddfactorice` — degree-day factors for snow and ice melt (m/yr/PDD); defaults 0.00297 and 0.00791
 - `sigma` — temperature variability for PDD calculation (°C); default 4.5
 - `rainlimit` — temperature threshold for rain/snow partitioning (°C); default 1.0
+- `deflate_level` — zlib compression level for output NetCDF4 files (0 = off, 1–9); default 5 (~3× compression at 16 km, ~4–6× at 1 km due to large off-ice zero regions)
 
 **Forcing files** live under `./Forcing/` (mirrored from cluster). The `output/` directory must exist before running.
 
@@ -74,7 +79,7 @@ The active driver is `gpdd_monthly_inout.x`. To switch scenarios pass a differen
 
 Dependency chain: `ncio.f90` → `massbalance_module.f90` → driver programs.
 
-**`ncio.f90`** — third-party NetCDF I/O wrapper (Alexander Robinson). Provides `nc_read`, `nc_write`, `nc_create`, `nc_write_dim`, `nc_write_attr`, `nc_ndims`, `nc_dims`, `nc_open`, `nc_close`. Do not modify.
+**`ncio.f90`** — third-party NetCDF I/O wrapper (Alexander Robinson). Provides `nc_read`, `nc_write`, `nc_create`, `nc_write_dim`, `nc_write_attr`, `nc_ndims`, `nc_dims`, `nc_open`, `nc_close`. Two local modifications have been made: (1) `nc_create` now correctly passes `nf90_netcdf4` as the creation mode when `netcdf4=.TRUE.` — the original code had this line commented out since 2015, silently creating NetCDF3 files; (2) `ncio_deflate_level` module variable controls zlib compression (0 = off, 1–9 = deflate level); set by the driver after reading the namelist.
 
 **`massbalance_module.f90`** — all PDD physics. Six subroutines in three tiers:
 
@@ -99,7 +104,43 @@ All subroutines use `(nx, ny, ...)` array ordering. PDD lookup tables (`taberf`,
 
 **`gpdd_monthly_inout.f90`** — active driver. Year loop reads one forcing file per year, calls `pdd_model_greenland_total_monthly_inout`, applies the ice mask, converts units, and writes one NetCDF file per variable per year via the `write_nc_file` contained subroutine. Output is on the ISMIP6 Greenland grid (epsg:3413, origin x=−720000, y=−3450000 m).
 
+**`gpdd_monthly_inout_mpi.f90`** — MPI parallel driver. ny-axis domain decomposition; rank 0 handles all I/O. Uses transposed (nx,12,ny) buffers (`global_t`, `local_t`) to scatter/gather all 12 months in a single `MPI_Scatterv`/`MPI_Gatherv` call per variable (11 MPI collectives/year, down from 132). Build with `make gpdd_monthly_inout_mpi`; submit with `runPDD_mpi`.
+
 **`gpdd_monthly.f90`**, **`gpdd.f90`** — older drivers, kept for reference. Not used in the current workflow.
+
+## MPI parallelisation — conclusions
+
+MPI within a single run does **not** pay off at any tested resolution. The bottleneck is serial I/O (rank 0 reads/writes all forcing and output) combined with memory transposition overhead in scatter/gather. Measured 1 km scaling on Betzy with the optimised code (11 MPI collectives/year):
+
+| Tasks | Nodes | Queue | Elapsed | vs serial (1:01) |
+|-------|-------|-------|---------|-----------------|
+| 128 | 1 | preproc | 1:02 | ~same |
+| 256 | 4 | normal | 1:08 | slightly slower |
+| 512 | 4 | normal | 1:09 | slightly slower |
+
+**Root causes of no speedup:** (1) Disk I/O is fully serial on rank 0 — reading ~900 MB/year of forcing dominates wall time. (2) The pack/unpack transposition loops in `scatter_3d`/`gather_3d` access `global(nx,ny,12)` with a 38 MB stride between months, thrashing L3 cache and adding overhead that offsets compute savings. (3) Compute is only ~15% of total run time even at 1 km.
+
+**Right approach for throughput:** SLURM job arrays with serial runs — one job per model/scenario/parameter set. No code changes required; fully exploits the embarrassingly parallel nature of the ensemble.
+
+**MPI submission quirks on Betzy:**
+- Preproc queue: use `--mem=32G` (total node) not `--mem-per-cpu=8G` (128 tasks × 8G = 1024G overflows the 256G preproc node)
+- Normal queue: minimum 4 nodes; memory is allocated automatically (no `--mem` needed)
+- Preproc allows multiple jobs on the same node simultaneously — avoid submitting concurrent jobs that write to the same output directory
+- Override `runPDD_mpi` defaults: `sbatch --partition=preproc --nodes=1 --ntasks=N --mem=32G runPDD_mpi params.nml`
+
+## Resolution convergence
+
+CESM2 historical 1950–1954, all resolutions with the same forcing and period:
+
+| Res | Mean Gt/yr | Annual values |
+|-----|-----------|---------------|
+| 1 km | 274.9 | 200.0  224.9  335.3  239.8  374.5 |
+| 2 km | 274.8 | 199.9  224.8  335.2  239.8  374.5 |
+| 4 km | 275.4 | 200.3  225.5  335.8  240.4  375.1 |
+| 8 km | 276.3 | 201.2  226.1  336.1  242.1  375.8 |
+| 16 km | 273.4 | 198.1  223.7  333.1  239.3  373.1 |
+
+Spread across all resolutions: **2.9 Gt/yr (~1%)**. Model is well-converged at 16 km for domain-integrated SMB. Plot script: `diag/plot_resolution_comparison.py` (run with `plotting` conda env).
 
 ## Refactoring status
 
