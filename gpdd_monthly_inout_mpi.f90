@@ -59,6 +59,11 @@ program gpdd_mpi
   double precision, allocatable :: pr_ratio_g(:,:,:)
   double precision, allocatable :: def_mask_g(:,:)
 
+  ! Transposed scatter/gather buffers — allocated once, reused every year.
+  ! Layout (nx, 12, ny/local_ny) makes each rank's full data contiguous for a single MPI call.
+  double precision, allocatable :: global_t(:,:,:)  ! rank 0: (nx, 12, ny)
+  double precision, allocatable :: local_t(:,:,:)   ! all ranks: (nx, 12, local_ny)
+
   ! Local arrays: allocated on all ranks, size (nx, local_ny, 12)
   double precision, allocatable :: tas(:,:,:)
   double precision, allocatable :: pr(:,:,:)
@@ -168,6 +173,10 @@ program gpdd_mpi
 
   if (rank == 0) write(*,*) "## ny=", ny, "  local_ny per rank: min/max=", &
        minval(sendcounts), "/", maxval(sendcounts)
+
+  ! ── Allocate scatter/gather buffers ─────────────────────────────────────
+  allocate(local_t(nx, 12, local_ny))
+  if (rank == 0) allocate(global_t(nx, 12, ny))
 
   ! ── Allocate global arrays (rank 0 only) ─────────────────────────────────
   if (rank == 0) then
@@ -372,6 +381,8 @@ program gpdd_mpi
 
   ! ── Clean up ───────────────────────────────────────────────────────────────
   deallocate(sendcounts, displs)
+  deallocate(local_t)
+  if (rank == 0) deallocate(global_t)
   deallocate(tas, pr, smb, snow, rain, sir, abl, pdd, rfr, def_mask)
   if (fmode == 1) deallocate(tas_ref, pr_ref, tas_anom, pr_ratio)
   if (rank == 0) then
@@ -386,16 +397,24 @@ contains
 
   ! ── Internal scatter/gather helpers ─────────────────────────────────────────
   ! Scatter a global (nx, ny, 12) array from rank 0 to local (nx, local_ny, 12).
+  ! Uses a transposed (nx, 12, ny) buffer so all 12 months for a rank's row-block
+  ! are contiguous, enabling a single MPI_Scatterv instead of 12.
   subroutine scatter_3d(global, local)
     double precision, intent(in)  :: global(:,:,:)   ! (nx, ny, 12) on rank 0; ignored elsewhere
     double precision, intent(out) :: local(:,:,:)    ! (nx, local_ny, 12)
-    integer :: mm, sc(0:nproc-1), dp(0:nproc-1)
-    sc = sendcounts * nx   ! elements per rank per time level
-    dp = displs    * nx
-    do mm = 1, 12
-       call MPI_Scatterv(global(:,:,mm), sc, dp, MPI_DOUBLE_PRECISION, &
-                         local(:,:,mm), local_ny*nx, MPI_DOUBLE_PRECISION, &
-                         0, MPI_COMM_WORLD, ierr)
+    integer :: j, sc(0:nproc-1), dp(0:nproc-1)
+    sc = sendcounts * nx * 12
+    dp = displs    * nx * 12
+    if (rank == 0) then
+       do j = 1, ny
+          global_t(:, :, j) = global(:, j, :)
+       end do
+    end if
+    call MPI_Scatterv(global_t, sc, dp, MPI_DOUBLE_PRECISION, &
+                      local_t, local_ny*nx*12, MPI_DOUBLE_PRECISION, &
+                      0, MPI_COMM_WORLD, ierr)
+    do j = 1, local_ny
+       local(:, j, :) = local_t(:, :, j)
     end do
   end subroutine scatter_3d
 
@@ -412,17 +431,24 @@ contains
   end subroutine scatter_2d
 
   ! Gather local (nx, local_ny, 12) from all ranks to global (nx, ny, 12) on rank 0.
+  ! Uses the same transposed buffer trick as scatter_3d: single MPI_Gatherv per call.
   subroutine gather_3d(local, global)
     double precision, intent(in)  :: local(:,:,:)    ! (nx, local_ny, 12)
     double precision, intent(out) :: global(:,:,:)   ! (nx, ny, 12) on rank 0
-    integer :: mm, sc(0:nproc-1), dp(0:nproc-1)
-    sc = sendcounts * nx
-    dp = displs    * nx
-    do mm = 1, 12
-       call MPI_Gatherv(local(:,:,mm), local_ny*nx, MPI_DOUBLE_PRECISION, &
-                        global(:,:,mm), sc, dp, MPI_DOUBLE_PRECISION, &
-                        0, MPI_COMM_WORLD, ierr)
+    integer :: j, sc(0:nproc-1), dp(0:nproc-1)
+    sc = sendcounts * nx * 12
+    dp = displs    * nx * 12
+    do j = 1, local_ny
+       local_t(:, :, j) = local(:, j, :)
     end do
+    call MPI_Gatherv(local_t, local_ny*nx*12, MPI_DOUBLE_PRECISION, &
+                     global_t, sc, dp, MPI_DOUBLE_PRECISION, &
+                     0, MPI_COMM_WORLD, ierr)
+    if (rank == 0) then
+       do j = 1, ny
+          global(:, j, :) = global_t(:, :, j)
+       end do
+    end if
   end subroutine gather_3d
 
   ! ── write_nc_file (rank 0 only; identical to serial driver) ─────────────────
