@@ -30,7 +30,19 @@ program gpdd
   integer :: fmode
   integer :: outputmode
   integer :: outputvars
+  integer :: outputfreq
   integer :: deflate_level
+
+  ! Annual mean arrays (nx, ny, 1) — allocated when outputfreq == 1
+  double precision, allocatable :: smb_ann(:,:,:)
+  double precision, allocatable :: tas_ann(:,:,:)
+  double precision, allocatable :: pr_ann(:,:,:)
+  double precision, allocatable :: abl_ann(:,:,:)
+  double precision, allocatable :: snow_ann(:,:,:)
+  double precision, allocatable :: rain_ann(:,:,:)
+  double precision, allocatable :: sir_ann(:,:,:)
+  double precision, allocatable :: pdd_ann(:,:,:)
+  double precision, allocatable :: rfr_ann(:,:,:)
   double precision :: res
   
   ! dimensions
@@ -57,7 +69,7 @@ program gpdd
   integer,            allocatable :: dimlens(:)
 
   NAMELIST /config/ &
-       outputmode, outputvars, fmode, deflate_level, &
+       outputmode, outputvars, outputfreq, fmode, deflate_level, &
        inpathname_pr, inpathname_tas, &
        fileroot_pr, fileroot_tas, &
        year0, nt, fileroot_out, &
@@ -70,6 +82,7 @@ program gpdd
   ! Default configuration (overridden by namelist file)
   outputmode     = 0
   outputvars     = 0
+  outputfreq     = 0
   fmode          = 1
   deflate_level  = 5
   inpathname_pr = ""
@@ -119,7 +132,7 @@ program gpdd
 
   ncio_deflate_level = deflate_level
 
-  write(*,*) "## fmode=", fmode, "  outputmode=", outputmode, "  outputvars=", outputvars
+  write(*,*) "## fmode=", fmode, "  outputmode=", outputmode, "  outputvars=", outputvars, "  outputfreq=", outputfreq
   write(*,*) "## year0=", year0, "  nt=", nt
   write(*,*) "## nx=", nx, "  ny=", ny, "  res=", res
   write(*,*) "## res_suffix=    ", trim(res_suffix)
@@ -148,7 +161,19 @@ program gpdd
 
   allocate(def_mask(nx,ny))
 
-  ! Mode specific 
+  if (outputfreq == 1) then
+     allocate(smb_ann(nx,ny,1))
+     allocate(tas_ann(nx,ny,1))
+     allocate(pr_ann(nx,ny,1))
+     allocate(abl_ann(nx,ny,1))
+     allocate(snow_ann(nx,ny,1))
+     allocate(rain_ann(nx,ny,1))
+     allocate(sir_ann(nx,ny,1))
+     allocate(pdd_ann(nx,ny,1))
+     allocate(rfr_ann(nx,ny,1))
+  end if
+
+  ! Mode specific
   if (fmode == 0) then
      ! Forcing with tas and pr
      write(*,*) "## Running with tas, pr"
@@ -305,64 +330,140 @@ program gpdd
     END DO
           
      ! Write files
-     if (outputmode == 0) then
-        if (outputvars == 0) &
-        call write_nc_file(tas, res, year, outpathname, &
-             fileroot_out, "tas", "K", "air_temperature", &
-             institution, contact_name, contact_email)
-        call write_nc_file(smb, res, year, outpathname, &
-             fileroot_out, "acabf", "kg m-2 s-1", "land_ice_surface_specific_mass_balance_flux", &
-             institution, contact_name, contact_email)
+     if (outputfreq == 1) then
+        ! Annual mean output: average 12 months → 1 time step per year
+        smb_ann(:,:,1)  = sum(smb(:,:,:),  dim=3) / 12.d0
         if (outputvars == 0) then
-        call write_nc_file(pr, res, year, outpathname, &
-             fileroot_out, "pr", "kg m-2 s-1", "precipitation_flux", &
+           tas_ann(:,:,1)  = sum(tas(:,:,:),  dim=3) / 12.d0
+           pr_ann(:,:,1)   = sum(pr(:,:,:),   dim=3) / 12.d0
+           abl_ann(:,:,1)  = sum(abl(:,:,:),  dim=3) / 12.d0
+           snow_ann(:,:,1) = sum(snow(:,:,:), dim=3) / 12.d0
+           rain_ann(:,:,1) = sum(rain(:,:,:), dim=3) / 12.d0
+           sir_ann(:,:,1)  = sum(sir(:,:,:),  dim=3) / 12.d0
+           pdd_ann(:,:,1)  = sum(pdd(:,:,:),  dim=3) / 12.d0
+           rfr_ann(:,:,1)  = sum(rfr(:,:,:),  dim=3) / 12.d0
+        end if
+        if (outputmode == 0) then
+           if (outputvars == 0) &
+           call write_nc_file_annual(tas_ann, res, year, outpathname, &
+                fileroot_out, "tas", "K", "air_temperature", &
+                institution, contact_name, contact_email)
+           call write_nc_file_annual(smb_ann, res, year, outpathname, &
+                fileroot_out, "acabf", "kg m-2 s-1", "land_ice_surface_specific_mass_balance_flux", &
+                institution, contact_name, contact_email)
+           if (outputvars == 0) then
+           call write_nc_file_annual(pr_ann, res, year, outpathname, &
+                fileroot_out, "pr", "kg m-2 s-1", "precipitation_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file_annual(abl_ann, res, year, outpathname, &
+                fileroot_out, "mrro", "kg m-2 s-1", "runoff_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file_annual(rain_ann, res, year, outpathname, &
+                fileroot_out, "prra", "kg m-2 s-1", "rainfall_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file_annual(snow_ann, res, year, outpathname, &
+                fileroot_out, "prsn", "kg m-2 s-1", "snowfall_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file_annual(sir_ann, res, year, outpathname, &
+                fileroot_out, "snicefreez", "kg m-2 s-1", "surface_snow_and_ice_refreezing_flux", &
+                institution, contact_name, contact_email)
+           end if
+        else if (outputmode == 1) then
+           if (outputvars == 0) &
+           call write_nc_file_annual(tas_ann, res, year, outpathname, &
+                fileroot_out, "tas", "C", "air_temperature", &
+                institution, contact_name, contact_email)
+           call write_nc_file_annual(smb_ann, res, year, outpathname, &
+                fileroot_out, "acabf", "kg m-2 yr-1", "land_ice_surface_specific_mass_balance_flux", &
+                institution, contact_name, contact_email)
+           if (outputvars == 0) then
+           call write_nc_file_annual(pr_ann, res, year, outpathname, &
+                fileroot_out, "pr", "kg m-2 yr-1", "precipitation_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file_annual(abl_ann, res, year, outpathname, &
+                fileroot_out, "mrro", "kg m-2 yr-1", "runoff_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file_annual(rain_ann, res, year, outpathname, &
+                fileroot_out, "prra", "kg m-2 yr-1", "rainfall_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file_annual(snow_ann, res, year, outpathname, &
+                fileroot_out, "prsn", "kg m-2 yr-1", "snowfall_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file_annual(sir_ann, res, year, outpathname, &
+                fileroot_out, "snicefreez", "kg m-2 yr-1", "surface_snow_and_ice_refreezing_flux", &
+                institution, contact_name, contact_email)
+           end if
+        end if
+        if (outputvars == 0) then
+        call write_nc_file_annual(pdd_ann, res, year, outpathname, &
+             fileroot_out, "pdd", "1", "positive_degree_days", &
              institution, contact_name, contact_email)
-        call write_nc_file(abl, res, year, outpathname, &
-             fileroot_out, "mrro", "kg m-2 s-1", "runoff_flux", &
-             institution, contact_name, contact_email)
-        call write_nc_file(rain, res, year, outpathname, &
-             fileroot_out, "prra", "kg m-2 s-1", "rainfall_flux", &
-             institution, contact_name, contact_email)
-        call write_nc_file(snow, res, year, outpathname, &
-             fileroot_out, "prsn", "kg m-2 s-1", "snowfall_flux", &
-             institution, contact_name, contact_email)
-        call write_nc_file(sir, res, year, outpathname, &
-             fileroot_out, "snicefreez", "kg m-2 s-1", "surface_snow_and_ice_refreezing_flux", &
+        call write_nc_file_annual(rfr_ann, res, year, outpathname, &
+             fileroot_out, "rfr", "1", "rain_fraction", &
              institution, contact_name, contact_email)
         end if
-     else if (outputmode == 1) then
-        if (outputvars == 0) &
-        call write_nc_file(tas, res, year, outpathname, &
-             fileroot_out, "tas", "C", "air_temperature", &
-             institution, contact_name, contact_email)
-        call write_nc_file(smb, res, year, outpathname, &
-             fileroot_out, "acabf", "kg m-2 yr-1", "land_ice_surface_specific_mass_balance_flux", &
-             institution, contact_name, contact_email)
+
+     else
+        ! Monthly output (default)
+        if (outputmode == 0) then
+           if (outputvars == 0) &
+           call write_nc_file(tas, res, year, outpathname, &
+                fileroot_out, "tas", "K", "air_temperature", &
+                institution, contact_name, contact_email)
+           call write_nc_file(smb, res, year, outpathname, &
+                fileroot_out, "acabf", "kg m-2 s-1", "land_ice_surface_specific_mass_balance_flux", &
+                institution, contact_name, contact_email)
+           if (outputvars == 0) then
+           call write_nc_file(pr, res, year, outpathname, &
+                fileroot_out, "pr", "kg m-2 s-1", "precipitation_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file(abl, res, year, outpathname, &
+                fileroot_out, "mrro", "kg m-2 s-1", "runoff_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file(rain, res, year, outpathname, &
+                fileroot_out, "prra", "kg m-2 s-1", "rainfall_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file(snow, res, year, outpathname, &
+                fileroot_out, "prsn", "kg m-2 s-1", "snowfall_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file(sir, res, year, outpathname, &
+                fileroot_out, "snicefreez", "kg m-2 s-1", "surface_snow_and_ice_refreezing_flux", &
+                institution, contact_name, contact_email)
+           end if
+        else if (outputmode == 1) then
+           if (outputvars == 0) &
+           call write_nc_file(tas, res, year, outpathname, &
+                fileroot_out, "tas", "C", "air_temperature", &
+                institution, contact_name, contact_email)
+           call write_nc_file(smb, res, year, outpathname, &
+                fileroot_out, "acabf", "kg m-2 yr-1", "land_ice_surface_specific_mass_balance_flux", &
+                institution, contact_name, contact_email)
+           if (outputvars == 0) then
+           call write_nc_file(pr, res, year, outpathname, &
+                fileroot_out, "pr", "kg m-2 yr-1", "precipitation_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file(abl, res, year, outpathname, &
+                fileroot_out, "mrro", "kg m-2 yr-1", "runoff_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file(rain, res, year, outpathname, &
+                fileroot_out, "prra", "kg m-2 yr-1", "rainfall_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file(snow, res, year, outpathname, &
+                fileroot_out, "prsn", "kg m-2 yr-1", "snowfall_flux", &
+                institution, contact_name, contact_email)
+           call write_nc_file(sir, res, year, outpathname, &
+                fileroot_out, "snicefreez", "kg m-2 yr-1", "surface_snow_and_ice_refreezing_flux", &
+                institution, contact_name, contact_email)
+           end if
+        end if
         if (outputvars == 0) then
-        call write_nc_file(pr, res, year, outpathname, &
-             fileroot_out, "pr", "kg m-2 yr-1", "precipitation_flux", &
+        call write_nc_file(pdd, res, year, outpathname, &
+             fileroot_out, "pdd", "1", "positive_degree_days", &
              institution, contact_name, contact_email)
-        call write_nc_file(abl, res, year, outpathname, &
-             fileroot_out, "mrro", "kg m-2 yr-1", "runoff_flux", &
-             institution, contact_name, contact_email)
-        call write_nc_file(rain, res, year, outpathname, &
-             fileroot_out, "prra", "kg m-2 yr-1", "rainfall_flux", &
-             institution, contact_name, contact_email)
-        call write_nc_file(snow, res, year, outpathname, &
-             fileroot_out, "prsn", "kg m-2 yr-1", "snowfall_flux", &
-             institution, contact_name, contact_email)
-        call write_nc_file(sir, res, year, outpathname, &
-             fileroot_out, "snicefreez", "kg m-2 yr-1", "surface_snow_and_ice_refreezing_flux", &
+        call write_nc_file(rfr, res, year, outpathname, &
+             fileroot_out, "rfr", "1", "rain_fraction", &
              institution, contact_name, contact_email)
         end if
-     end if
-     if (outputvars == 0) then
-     call write_nc_file(pdd, res, year, outpathname, &
-          fileroot_out, "pdd", "1", "positive_degree_days", &
-          institution, contact_name, contact_email)
-     call write_nc_file(rfr, res, year, outpathname, &
-          fileroot_out, "rfr", "1", "rain_fraction", &
-          institution, contact_name, contact_email)
      end if
      
      ! update timer
@@ -392,6 +493,11 @@ program gpdd
      deallocate(pr_ref)
      deallocate(tas_anom)
      deallocate(pr_ratio)
+  end if
+
+  if (outputfreq == 1) then
+     deallocate(smb_ann, tas_ann, pr_ann, abl_ann)
+     deallocate(snow_ann, rain_ann, sir_ann, pdd_ann, rfr_ann)
   end if
 
   
@@ -450,5 +556,50 @@ contains
     call nc_write(filename,varname,avar(:,:,:),dim1="x",dim2="y",dim3="time",units=units, long_name=longname)
 
   end subroutine write_nc_file
+
+  subroutine write_nc_file_annual(avar,res,year,outpathname,fileroot,varname,units,longname, &
+                                   institution,contact_name,contact_email)
+    ! Write annual-mean variable to netcdf file — one time step per year.
+
+    use ncio
+
+    IMPLICIT NONE
+
+    INTEGER, PARAMETER :: dp = KIND(1.0D0)
+
+    REAL(dp), INTENT(IN)  :: avar(:,:,:)    ! shape (nx, ny, 1)
+    REAL(dp), INTENT(IN)  :: res
+    INTEGER,  INTENT(IN)  :: year
+    character(len=*), INTENT(IN) :: outpathname, fileroot
+    character(len=*), INTENT(IN) :: varname, units, longname
+    character(len=*), INTENT(IN) :: institution, contact_name, contact_email
+
+    character(len=256) :: cyear, filename
+    double precision :: days
+
+    write (cyear, "(I0.4)") year
+    ! Register annual mean at mid-year (day 180 on 360-day calendar)
+    days = (year - 1850.0d0) * 360.0d0 + 180.0d0
+    filename = trim(outpathname) // "/" // trim(varname) &
+         // "_" // trim(fileroot) // "_" // trim(cyear) // ".nc"
+    write(*,*) "### output file: ", trim(filename)
+
+    call nc_create(filename, overwrite=.TRUE., netcdf4=.TRUE.)
+    call nc_write_attr(filename, "title",            "NORCE-PDD output")
+    call nc_write_attr(filename, "institution",       trim(institution))
+    call nc_write_attr(filename, "contact_name",      trim(contact_name))
+    call nc_write_attr(filename, "contact_email",     trim(contact_email))
+    call nc_write_attr(filename, "grid_information",  "ISMIP6 grid, epsg:3413")
+    call nc_write_attr(filename, "output_frequency",  "annual")
+
+    call nc_write_dim(filename, "x", x=-720000.d0,   dx=res, nx=size(avar,1), units="m")
+    call nc_write_dim(filename, "y", x=-3450000.d0,  dx=res, nx=size(avar,2), units="m")
+    call nc_write_dim(filename, "time", x=days, dx=360.d0, nx=1, &
+         units="days since 1850-01-01 00:00:00", calendar="360_day", unlimited=.TRUE.)
+
+    call nc_write(filename, varname, avar(:,:,:), dim1="x", dim2="y", dim3="time", &
+         units=units, long_name=longname)
+
+  end subroutine write_nc_file_annual
 
 end program gpdd
