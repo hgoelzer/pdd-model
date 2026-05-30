@@ -79,6 +79,12 @@ gpdd_monthly_inout_mpi: $(objdir)/ncio.o $(objdir)/massbalance_module.o
 	@echo "    gpdd_monthly_inout_mpi.x is ready."
 	@echo " "
 
+test_massbalance: $(objdir)/massbalance_module.o
+	$(FC) $(DFLAGS) $(FLAGS) -o test_massbalance.x $(objdir)/massbalance_module.o test_massbalance.f90
+	@echo " "
+	@echo "    test_massbalance.x is ready."
+	@echo " "
+
 clean:
-	rm -f gpdd.x gpdd_monthly.x gpdd_monthly_inout_mpi.x $(objdir)/*.o $(objdir)/*.mod $(objdir)/$(libname)
+	rm -f gpdd.x gpdd_monthly.x gpdd_monthly_inout_mpi.x test_massbalance.x $(objdir)/*.o $(objdir)/*.mod $(objdir)/$(libname)
 
