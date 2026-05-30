@@ -27,6 +27,7 @@ module ncio
     implicit none
 
     logical :: verbose = .FALSE.
+    integer :: ncio_deflate_level = 0   ! 0 = no compression; 1-9 = zlib deflate level
 
     double precision, parameter :: NCIO_VERSION = 0.2d0
 
@@ -132,6 +133,7 @@ module ncio
     public :: nc_dims, nc_ndims
     public :: nc_write_attr_std_dim
     public :: nc_exists_var, nc_exists_attr
+    public :: ncio_deflate_level
 
 contains
 
@@ -865,6 +867,10 @@ contains
                     write(0,*) "stopped by ncio."
                     stop 9
             end select
+
+            if (.not. v%coord .and. ncio_deflate_level > 0 .and. trim(v%xtype) .ne. "NF90_CHAR") &
+                call nc_check( nf90_def_var_deflate(ncid, v%varid, &
+                               shuffle=1, deflate=1, deflate_level=ncio_deflate_level) )
 
             if (trim(v%xtype) .ne. "NF90_CHAR") then
 

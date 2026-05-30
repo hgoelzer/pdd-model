@@ -30,6 +30,7 @@ program gpdd
   integer :: fmode
   integer :: outputmode
   integer :: outputvars
+  integer :: deflate_level
   double precision :: res
   
   ! dimensions
@@ -56,7 +57,7 @@ program gpdd
   integer,            allocatable :: dimlens(:)
 
   NAMELIST /config/ &
-       outputmode, outputvars, fmode, &
+       outputmode, outputvars, fmode, deflate_level, &
        inpathname_pr, inpathname_tas, &
        fileroot_pr, fileroot_tas, &
        year0, nt, fileroot_out, &
@@ -67,9 +68,10 @@ program gpdd
        ddfactorsnow, ddfactorice, sigma, rainlimit
 
   ! Default configuration (overridden by namelist file)
-  outputmode    = 0
-  outputvars    = 0
-  fmode         = 1
+  outputmode     = 0
+  outputvars     = 0
+  fmode          = 1
+  deflate_level  = 0
   inpathname_pr = ""
   inpathname_tas= ""
   fileroot_pr   = ""
@@ -114,6 +116,8 @@ program gpdd
      stop 1
   end if
   close(nml_unit)
+
+  ncio_deflate_level = deflate_level
 
   write(*,*) "## fmode=", fmode, "  outputmode=", outputmode, "  outputvars=", outputvars
   write(*,*) "## year0=", year0, "  nt=", nt

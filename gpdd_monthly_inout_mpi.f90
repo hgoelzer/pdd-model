@@ -38,6 +38,7 @@ program gpdd_mpi
   integer :: fmode
   integer :: outputmode
   integer :: outputvars
+  integer :: deflate_level
   double precision :: res
 
   ! dimensions (rank 0 only, for write_nc_file)
@@ -84,7 +85,7 @@ program gpdd_mpi
   integer,            allocatable :: dimlens(:)
 
   NAMELIST /config/ &
-       outputmode, outputvars, fmode, &
+       outputmode, outputvars, fmode, deflate_level, &
        inpathname_pr, inpathname_tas, &
        fileroot_pr, fileroot_tas, &
        year0, nt, fileroot_out, &
@@ -103,6 +104,7 @@ program gpdd_mpi
   outputmode    = 0
   outputvars    = 0
   fmode         = 1
+  deflate_level = 0
   inpathname_pr = ""
   inpathname_tas= ""
   fileroot_pr   = ""
@@ -145,6 +147,8 @@ program gpdd_mpi
      close(nml_unit); call MPI_Finalize(ierr); stop 1
   end if
   close(nml_unit)
+
+  if (rank == 0) ncio_deflate_level = deflate_level
 
   if (rank == 0) then
      write(*,*) "## MPI tasks:     ", nproc
