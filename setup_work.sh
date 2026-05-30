@@ -35,10 +35,10 @@ for dir in Forcing output; do
 
     if [ -d "${src}" ] && [ -n "$(ls -A "${src}" 2>/dev/null)" ]; then
         echo "  ${dir}: moving contents to ${dst} ..."
-        mv "${src}"/* "${dst}"/
+        find "${src}" -maxdepth 1 -mindepth 1 -exec mv -t "${dst}"/ {} +
     fi
 
-    [ -d "${src}" ] && rmdir "${src}"
+    rmdir "${src}" 2>/dev/null || { echo "  WARNING: ${src} not empty after move — check manually"; continue; }
     ln -s "${dst}" "${src}"
     echo "  ${dir}: ${src} → ${dst}"
 done

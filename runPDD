@@ -13,8 +13,11 @@
 set -o errexit
 set -o nounset
 
-## Load the same module environment used for compilation
-source "$(dirname "$0")/setenv.sh"
+## Load the same module environment used for compilation.
+## SLURM_SUBMIT_DIR is the directory from which sbatch was called (set by SLURM).
+## Fall back to dirname $0 for interactive use.
+SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(dirname "$0")}"
+source "${SCRIPT_DIR}/setenv.sh"
 module list
 
 ## Namelist file: pass via --export=NML=<file> at sbatch submission, or set here
