@@ -71,7 +71,7 @@ program gpdd
   outputmode     = 0
   outputvars     = 0
   fmode          = 1
-  deflate_level  = 0
+  deflate_level  = 5
   inpathname_pr = ""
   inpathname_tas= ""
   fileroot_pr   = ""
