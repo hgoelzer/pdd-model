@@ -1,0 +1,24 @@
+#!/bin/bash
+#SBATCH --job-name=gpdd_mpi
+# Accounts: CLIM2Ant: nn11016k, ISMIP7: nn5011k, GREASE: nn8006k
+#SBATCH --account=nn5011k
+#SBATCH --nodes=4
+#SBATCH --ntasks-per-node=128
+#SBATCH --time=01:00:00
+#SBATCH --mem-per-cpu=4G   # 4G sufficient for 2-16km; use 16G for 1km
+
+set -o errexit
+set -o nounset
+
+SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(dirname "$0")}"
+source "${SCRIPT_DIR}/setenv.sh"
+module list
+
+## Namelist: pass as positional argument, e.g.:
+##   sbatch runPDD_mpi params_CESM2_historical_anom_04km.nml
+NML=${1:-params.nml}
+
+echo "=== Running MPI (${SLURM_NTASKS} tasks): ./gpdd_monthly_inout_mpi.x ${NML} ==="
+time srun ./gpdd_monthly_inout_mpi.x ${NML}
+
+exit 0
