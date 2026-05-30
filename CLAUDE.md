@@ -39,9 +39,10 @@ If no argument is given, `params.nml` in the working directory is used. To switc
 **Namelist parameters** (all in `&config` group):
 - `fmode` — 0 = direct tas/pr forcing; 1 = anomaly/ratio forcing (needs reference files)
 - `outputmode` — 0 = SMBMIP units (kg m-2 s-1, K); 1 = human units (mm/month, C)
+- `outputvars` — 0 = full output (all 9 variables, default); 1 = acabf only (faster for development)
 - `year0`, `nt` — start year and number of years
 - `inpathname_pr/tas`, `fileroot_pr/tas`, `res_suffix` — forcing file location and naming pattern
-- `nx`, `ny`, `res` — grid dimensions and resolution (1681×2881 at 1 km; 211×361 at 8 km)
+- `nx`, `ny`, `res` — grid dimensions and resolution (1681×2881 at 1 km; 211×361 at 8 km; 106×181 at 16 km)
 - `filename_prref`, `filename_tasref` — reference fields for fmode=1 (not opened in fmode=0)
 - `filename_defmask` — Greenland ice mask (`sftgif` variable); required for both fmodes
 - `outpathname` — output directory (must exist before run)
