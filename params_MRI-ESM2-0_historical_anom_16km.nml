@@ -1,0 +1,38 @@
+&config
+  outputmode = 0
+  fmode = 1
+
+  inpathname_pr  = "./Forcing/MRI-ESM2-0/historical/pr_ratio"
+  inpathname_tas = "./Forcing/MRI-ESM2-0/historical/tas_anom"
+  fileroot_pr    = "pr_ratio_MRI-ESM2-0_historical_r1i1p1f1"
+  fileroot_tas   = "tas_anom_MRI-ESM2-0_historical_r1i1p1f1"
+
+  year0        = 1950
+  nt           = 5
+  fileroot_out = "GIS_NORCEPDD1_MRI-ESM2-0_Historical_r1i1p1f1"
+
+  ! Grid: 16 km ISMIP7 GrIS
+  nx         = 106
+  ny         = 181
+  res        = 16000.0
+  res_suffix = "i16000m"
+
+  ! Reference files (fmode=1)
+  filename_prref   = "Forcing/MARv3.14LC26/pr_ref_MARv3.14LC26-monthly-ERA5-1960-1989_16000m.nc"
+  filename_tasref  = "Forcing/MARv3.14LC26/tas_ref_MARv3.14-monthly-ERA5-1960-1989_16000m.nc"
+  filename_defmask = "Forcing/constant/sftgif_promice_16000m.nc"
+
+  ! Output directory (must exist before run)
+  outpathname = "./output"
+
+  ! Output file metadata
+  institution   = "NORCE Research"
+  contact_name  = "Heiko Goelzer"
+  contact_email = "heig@norceresearch.no"
+
+  ! PDD physics parameters
+  ddfactorsnow = 0.00297
+  ddfactorice  = 0.00791
+  sigma        = 4.5
+  rainlimit    = 1.0
+/

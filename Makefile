@@ -26,9 +26,9 @@ debug ?= 0
 FLAGS  = -I$(objdir) -J$(objdir) -I$(INC)
 LFLAGS = -L$(LIB) -lnetcdff -lnetcdf
 
-DFLAGS = -O3
+DFLAGS = -O3 -ffree-line-length-none
 ifeq ($(debug), 1)
-    DFLAGS   = -w -g -p -ggdb -ffpe-trap=invalid,zero,overflow,underflow -fbacktrace -fcheck=all
+    DFLAGS   = -w -g -p -ggdb -ffpe-trap=invalid,zero,overflow,underflow -fbacktrace -fcheck=all -ffree-line-length-none
 endif
 
 ## Individual libraries or modules ##
