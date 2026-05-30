@@ -19,6 +19,6 @@ module list
 NML=${1:-params.nml}
 
 echo "=== Running MPI (${SLURM_NTASKS} tasks): ./gpdd_monthly_inout_mpi.x ${NML} ==="
-time srun ./gpdd_monthly_inout_mpi.x ${NML}
+time srun --mpi=pmix ./gpdd_monthly_inout_mpi.x ${NML}
 
 exit 0
