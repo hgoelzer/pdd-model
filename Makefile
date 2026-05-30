@@ -24,7 +24,7 @@ usage:
 debug ?= 0 
 
 FLAGS  = -I$(objdir) -J$(objdir) -I$(INC)
-LFLAGS = -L$(LIB) -lnetcdff -lnetcdf
+LFLAGS = -L$(LIB) -lnetcdff -lnetcdf -Wl,-rpath,$(LIB)
 
 DFLAGS = -O3 -ffree-line-length-none
 ifeq ($(debug), 1)
