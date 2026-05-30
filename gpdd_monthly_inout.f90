@@ -23,12 +23,13 @@ program gpdd
 
   integer :: nx, ny, nt
   double precision :: ddfactorsnow, ddfactorice, sigma, rainlimit
-  integer :: nml_unit, nml_ios, narg 
+  integer :: nml_unit, nml_ios, narg
   integer :: i, j, t, year, year0, m, k
   integer :: ndims
   integer :: ncid
   integer :: fmode
   integer :: outputmode
+  integer :: outputvars
   double precision :: res
   
   ! dimensions
@@ -55,7 +56,7 @@ program gpdd
   integer,            allocatable :: dimlens(:)
 
   NAMELIST /config/ &
-       outputmode, fmode, &
+       outputmode, outputvars, fmode, &
        inpathname_pr, inpathname_tas, &
        fileroot_pr, fileroot_tas, &
        year0, nt, fileroot_out, &
@@ -67,6 +68,7 @@ program gpdd
 
   ! Default configuration (overridden by namelist file)
   outputmode    = 0
+  outputvars    = 0
   fmode         = 1
   inpathname_pr = ""
   inpathname_tas= ""
@@ -113,7 +115,7 @@ program gpdd
   end if
   close(nml_unit)
 
-  write(*,*) "## fmode=", fmode, "  outputmode=", outputmode
+  write(*,*) "## fmode=", fmode, "  outputmode=", outputmode, "  outputvars=", outputvars
   write(*,*) "## year0=", year0, "  nt=", nt
   write(*,*) "## nx=", nx, "  ny=", ny, "  res=", res
   write(*,*) "## res_suffix=    ", trim(res_suffix)
@@ -300,12 +302,14 @@ program gpdd
           
      ! Write files
      if (outputmode == 0) then
+        if (outputvars == 0) &
         call write_nc_file(tas, res, year, outpathname, &
              fileroot_out, "tas", "K", "air_temperature", &
              institution, contact_name, contact_email)
         call write_nc_file(smb, res, year, outpathname, &
              fileroot_out, "acabf", "kg m-2 s-1", "land_ice_surface_specific_mass_balance_flux", &
              institution, contact_name, contact_email)
+        if (outputvars == 0) then
         call write_nc_file(pr, res, year, outpathname, &
              fileroot_out, "pr", "kg m-2 s-1", "precipitation_flux", &
              institution, contact_name, contact_email)
@@ -321,13 +325,16 @@ program gpdd
         call write_nc_file(sir, res, year, outpathname, &
              fileroot_out, "snicefreez", "kg m-2 s-1", "surface_snow_and_ice_refreezing_flux", &
              institution, contact_name, contact_email)
+        end if
      else if (outputmode == 1) then
+        if (outputvars == 0) &
         call write_nc_file(tas, res, year, outpathname, &
              fileroot_out, "tas", "C", "air_temperature", &
              institution, contact_name, contact_email)
         call write_nc_file(smb, res, year, outpathname, &
              fileroot_out, "acabf", "kg m-2 yr-1", "land_ice_surface_specific_mass_balance_flux", &
              institution, contact_name, contact_email)
+        if (outputvars == 0) then
         call write_nc_file(pr, res, year, outpathname, &
              fileroot_out, "pr", "kg m-2 yr-1", "precipitation_flux", &
              institution, contact_name, contact_email)
@@ -343,13 +350,16 @@ program gpdd
         call write_nc_file(sir, res, year, outpathname, &
              fileroot_out, "snicefreez", "kg m-2 yr-1", "surface_snow_and_ice_refreezing_flux", &
              institution, contact_name, contact_email)
+        end if
      end if
+     if (outputvars == 0) then
      call write_nc_file(pdd, res, year, outpathname, &
           fileroot_out, "pdd", "1", "positive_degree_days", &
           institution, contact_name, contact_email)
      call write_nc_file(rfr, res, year, outpathname, &
           fileroot_out, "rfr", "1", "rain_fraction", &
           institution, contact_name, contact_email)
+     end if
      
      ! update timer
      t = t+1

@@ -1,5 +1,6 @@
 &config
   outputmode = 0
+  outputvars = 1  ! 0=full output  1=acabf only
   fmode = 1
 
   inpathname_pr  = "./Forcing/CESM2/historical/pr_ratio"

@@ -1,5 +1,6 @@
 &config
   outputmode = 0
+  outputvars = 1  ! 0=full output  1=acabf only
   fmode = 1
 
   inpathname_pr  = "./Forcing/MRI-ESM2-0/historical/pr_ratio"
