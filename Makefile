@@ -6,6 +6,9 @@
 FC = gfortran
 LIB = ${EBROOTNETCDFMINFORTRAN}/lib
 INC = ${EBROOTNETCDFMINFORTRAN}/include
+# On clusters netCDF-C lives in a separate module path (EBROOTNETCDF).
+# On local conda builds it is in the same directory as the Fortran library.
+LIBC = $(if ${EBROOTNETCDF},${EBROOTNETCDF}/lib,$(LIB))
 
 objdir = obj
 libname = libncio.a
@@ -24,7 +27,7 @@ usage:
 debug ?= 0 
 
 FLAGS  = -I$(objdir) -J$(objdir) -I$(INC)
-LFLAGS = -L$(LIB) -lnetcdff -lnetcdf -Wl,-rpath,$(LIB)
+LFLAGS = -L$(LIB) -L$(LIBC) -lnetcdff -lnetcdf -Wl,-rpath,$(LIB) -Wl,-rpath,$(LIBC)
 
 DFLAGS = -O3 -ffree-line-length-none
 ifeq ($(debug), 1)
