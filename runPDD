@@ -14,19 +14,21 @@ set -o errexit
 set -o nounset
 
 ## Load the same module environment used for compilation.
-## SLURM_SUBMIT_DIR is the directory from which sbatch was called (set by SLURM).
-## Fall back to dirname $0 for interactive use.
+## SLURM_SUBMIT_DIR is the directory from which sbatch was called.
 SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(dirname "$0")}"
 source "${SCRIPT_DIR}/setenv.sh"
 module list
 
-## Namelist file: pass via --export=NML=<file> at sbatch submission, or set here
-NML=${NML:-params.nml}
+## Namelist: pass as positional argument to sbatch, e.g.:
+##   sbatch runPDD params_CESM2_historical_anom_16km.nml
+NML=${1:-params.nml}
 
 ## OpenMP thread count — uncomment when using cpus-per-task > 1
 ## export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
 
 echo "=== Running: ./gpdd_monthly_inout.x ${NML} ==="
 time srun ./gpdd_monthly_inout.x ${NML}
+
+## MPI parallel run: srun picks up --ntasks from the #SBATCH header above
 
 exit 0
