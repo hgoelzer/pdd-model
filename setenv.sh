@@ -10,3 +10,6 @@
 
 module purge
 module load netCDF-Fortran/4.6.1-gompi-2024a
+# Explicitly export library path so srun tasks inherit it even when SLURM
+# resets the task environment (some cluster configurations strip LD_LIBRARY_PATH).
+export LD_LIBRARY_PATH="${EBROOTNETCDFMINFORTRAN}/lib:${LD_LIBRARY_PATH:-}"
