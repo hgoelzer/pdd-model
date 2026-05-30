@@ -1,0 +1,34 @@
+&config
+  outputmode = 0
+  fmode = 1
+
+  inpathname_pr  = "./Forcing/CESM2/ssp370/pr_ratio"
+  inpathname_tas = "./Forcing/CESM2/ssp370/tas_anom"
+  fileroot_pr    = "pr_ratio_Amon_CESM2_ssp370_r11i1p1f1"
+  fileroot_tas   = "tas_Amon_CESM2_ssp370_r11i1p1f1"
+
+  year0        = 2015
+  nt           = 86
+  fileroot_out = "GIS_NORCEPDD1_CESM2_SSP370_r11i1p1f1"
+
+  nx         = 1681
+  ny         = 2881
+  res        = 1000.0
+  res_suffix = "i01000m"
+
+  filename_prref   = "Forcing/MARv3.14LC26/pr_ref_MARv3.14LC26-monthly-ERA5-1960-1989_01000m.nc"
+  filename_tasref  = "Forcing/MARv3.14LC26/tas_ref_MARv3.14-monthly-ERA5-1960-1989_01000m.nc"
+  filename_defmask = "Forcing/constant/sftgif_promice_01000m.nc"
+
+  outpathname = "./output"
+
+  institution   = "NORCE Research"
+  contact_name  = "Heiko Goelzer"
+  contact_email = "heig@norceresearch.no"
+
+  ! PDD physics parameters
+  ddfactorsnow = 0.00297
+  ddfactorice  = 0.00791
+  sigma        = 4.5
+  rainlimit    = 1.0
+/

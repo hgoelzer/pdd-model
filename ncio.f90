@@ -26,6 +26,8 @@ module ncio
 
     implicit none
 
+    logical :: verbose = .FALSE.
+
     double precision, parameter :: NCIO_VERSION = 0.2d0
 
     integer, parameter :: NC_STRLEN = 256
@@ -352,7 +354,7 @@ contains
         ! sure your data are really written to disk.
         if (.not. present(ncid)) call nc_check( nf90_close(nc_id) )
 
-!         write(*,"(a,a,a14)") "ncio:: nc_write:: ",trim(filename)//" : ",trim(v%name)
+        if (verbose) write(*,"(a,a,a14)") "ncio:: nc_write:: ",trim(filename)//" : ",trim(v%name)
 
         return
 
@@ -471,7 +473,7 @@ contains
         if (present(missing_value_double)) &
             where( dabs(dat) .ge. NC_LIM ) dat = dble(missing_value_double)
 
-!         write(*,"(a,a,a)") "ncio:: nc_read:: ",trim(filename)//" : ",trim(v%name)
+        if (verbose) write(*,"(a,a,a)") "ncio:: nc_read:: ",trim(filename)//" : ",trim(v%name)
 
         if (present(iostat)) iostat = nf90_noerr
         return
@@ -1254,7 +1256,7 @@ contains
         if (present(institution))   call nc_write_attr(filename, 'institution', institution)
         if (present(description))   call nc_write_attr(filename, 'description', description)
 
-        write(*,"(a,a)") "ncio:: nc_create   :: ",trim(filename)
+        if (verbose) write(*,"(a,a)") "ncio:: nc_create   :: ",trim(filename)
 
         return
 
@@ -1550,7 +1552,7 @@ contains
 
             end select
 
-            write(*,"(a,a,a)") "ncio:: nc_write_map:: ",trim(filename)//" : ",trim(grid_mapping_name)
+            if (verbose) write(*,"(a,a,a)") "ncio:: nc_write_map:: ",trim(filename)//" : ",trim(grid_mapping_name)
 
         end if
 
@@ -1847,7 +1849,7 @@ contains
         if (.not. present(ncid)) call nc_check( nf90_close(nc_id) )
 
         tmpchar = trim(v%name)
-        write(*,"(a,a,a14,i11)") "ncio:: nc_write_dim:: ",trim(filename)//" : ",adjustl(tmpchar),size(v%dim)
+        if (verbose) write(*,"(a,a,a14,i11)") "ncio:: nc_write_dim:: ",trim(filename)//" : ",adjustl(tmpchar),size(v%dim)
 
         return
 
@@ -3638,7 +3640,7 @@ contains
         integer, intent(in), optional :: ncid
 
         ! Convert the character array into a long string
-        write(*,"(a,a,a14)") "ncio:: nc_write_char:: ", &
+        if (verbose) write(*,"(a,a,a14)") "ncio:: nc_write_char:: ", &
                                   "warning: 2D character array could not be written: "//trim(name)
         return
 
@@ -3657,7 +3659,7 @@ contains
         integer, intent(in), optional :: ncid
 
         ! Convert the character array into a long string
-        write(*,"(a,a,a14)") "ncio:: nc_write_char:: ", &
+        if (verbose) write(*,"(a,a,a14)") "ncio:: nc_write_char:: ", &
                                   "warning: 3D character array could not be written: "//trim(name)
         return
 
@@ -3676,7 +3678,7 @@ contains
         integer, intent(in), optional :: ncid
 
         ! Convert the character array into a long string
-        write(*,"(a,a,a14)") "ncio:: nc_write_char:: ", &
+        if (verbose) write(*,"(a,a,a14)") "ncio:: nc_write_char:: ", &
                                   "warning: 4D character array could not be written: "//trim(name)
         return
 

@@ -2,18 +2,52 @@
 
 MODULE massbalance_module
 
+  IMPLICIT NONE
+  INTEGER,  PARAMETER :: dp     = KIND(1.0D0)
+  REAL(dp), PARAMETER :: pi     = 2.0_dp * ACOS(0.0_dp)
+  REAL(dp), PARAMETER :: valmax = 6.0_dp
+  INTEGER,  PARAMETER :: nintx  = 1200
+
+  REAL(dp), SAVE :: taberf(-nintx:nintx)
+  REAL(dp), SAVE :: tabepdd(-nintx:nintx)
+  LOGICAL,  SAVE :: lut_initialized = .FALSE.
+
 CONTAINS
 
-  SUBROUTINE massbalance_pdd_model_greenland(nx, ny, lat, Hs, acc_PD, T_anomaly, smb)
-    ! Positive degree day model, added by Heiko Goelzer, Jan 2017
+  SUBROUTINE init_pdd_lut()
+    REAL(dp) :: deltax, sq2pi, fac1, fdx, xi, xj, yi, yj, help
+    INTEGER  :: i
+    IF (lut_initialized) RETURN
+    taberf(0)  = 0.0
+    deltax = valmax / nintx
+    sq2pi  = (2*pi)**(0.5)
+    fac1   = deltax / (2*sq2pi)
+    tabepdd(0) = 1./sq2pi
+    xj = 0.
+    yj = 1.
+    DO i = 1, nintx
+      xi  = xj
+      yi  = yj
+      xj  = xj + deltax
+      yj  = exp(-0.5*xj*xj)
+      fdx = (yi + yj) * fac1
+      taberf(i)   = taberf(i-1) + fdx
+      taberf(-i)  = -taberf(i)
+      help        = yj / sq2pi + xj * taberf(i)
+      tabepdd(i)  = help + xj * 0.5
+      tabepdd(-i) = help - xj * 0.5
+    END DO
+    lut_initialized = .TRUE.
+  END SUBROUTINE init_pdd_lut
+
+
+  SUBROUTINE pdd_model_greenland_total_monthly_inout(nx, ny, ddfactorsnow, ddfactorice, sigma, rainlimit, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
+    ! Positive degree day model, uddated by Heiko Goelzer, Mar 2026
     ! Implements Greenland pdd model of Huybrechts and De Wolde 1999
+    ! Forcing with total monthly fields, output monthly data
 
     IMPLICIT NONE
 
-    INTEGER, PARAMETER :: dp = KIND(1.0D0)  ! Kind of double precision numbers.
-    REAL, PARAMETER :: triple_point_of_water = 273.16_dp
-
-    REAL, PARAMETER ::  pi = 2.0_dp * ACOS(0.0_dp)
 
     ! --------------------------------------------------------------------------
     ! Declaration of global variables
@@ -22,16 +56,230 @@ CONTAINS
     ! Input variables: 
     INTEGER, INTENT(IN)  :: nx, ny ! grid size
 
-    REAL(dp), INTENT(IN)  :: lat(ny,nx)            ! latitude (deg+)
-    REAL(dp), INTENT(IN)  :: Hs(ny,nx)             ! surface elevation (m)
-    ! Hs_PD not in use; compare with Antarctic model
-!    REAL(dp), DIMENSION(   ny,nx), INTENT(IN)  :: Hs_PD         ! reference surface elevation (m)
-
-    REAL(dp), INTENT(IN)  :: acc_PD(ny,nx)    ! reference accumulation (m/yr)
-    REAL(dp), INTENT(IN)  :: T_anomaly(ny,nx) ! temperature anomaly w.r.t. PD (deg)
+    REAL(dp), INTENT(IN)  :: tp(nx,ny,12)  ! total monthly precip (m/yr)
+    REAL(dp), INTENT(IN)  :: t2m(nx,ny,12)  ! monthly mean 2m temperature (K)
 
     ! Output variables: 
-    REAL(dp), INTENT(OUT) :: smb(ny,nx)        ! surface mass balance (m/yr)
+    REAL(dp), INTENT(OUT) :: smb(nx,ny,12)     ! surface mass balance (m/yr)
+    REAL(dp), INTENT(OUT) :: snow(nx,ny,12)
+    REAL(dp), INTENT(OUT) :: rain(nx,ny,12)
+    REAL(dp), INTENT(OUT) :: sir(nx,ny,12)
+    REAL(dp), INTENT(OUT) :: abl(nx,ny,12)           ! runoff (m/yr)
+    REAL(dp), INTENT(OUT) :: pdd(nx,ny,12)
+    REAL(dp), INTENT(OUT) :: rfr(nx,ny,12)
+
+    REAL(dp), INTENT(IN)                :: ddfactorsnow
+    REAL(dp), INTENT(IN)                :: ddfactorice
+    REAL(dp), INTENT(IN)                :: sigma
+    REAL(dp), INTENT(IN)                :: rainlimit
+
+    ! Local variables
+    REAL(dp), allocatable               :: tm(:,:,:)
+
+    REAL(dp), PARAMETER                 :: pmax = 0.3 ! See update in Janssens and Huybrechts 2000
+ 
+
+    ! Allocate arrays
+    allocate(tm(nx,ny,12))
+
+    ! Monthly temperature (C)
+    tm = t2m - 273.15
+
+    ! Determine number of positive degree days per year and rain fraction
+    !call calculate_pdd_monthly_inout(nx, ny, tm, pdd, rfr)
+    ! With parameterised seasonal cycle
+    call calculate_pdd_monthly_inout_taj(nx, ny, sigma, rainlimit, tm, pdd, rfr)
+
+    ! Distinguish rain and snow according to rain fraction
+    rain = tp * rfr
+    snow = tp - rain
+
+    call melt_cascade_3d(nx, ny, ddfactorsnow, ddfactorice, pmax, snow, pdd, tp, sir, abl)
+
+    ! no melt where insufficient energy
+    WHERE (pdd.LE.0)
+     sir = 0
+     abl = 0
+    END WHERE
+
+    smb = tp - abl - rain ! = snow - abl
+
+  END SUBROUTINE pdd_model_greenland_total_monthly_inout
+
+
+
+  SUBROUTINE pdd_model_greenland_total_monthly(nx, ny, ddfactorsnow, ddfactorice, sigma, rainlimit, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
+    ! Positive degree day model, uddated by Heiko Goelzer, Feb 2022
+    ! Implements Greenland pdd model of Huybrechts and De Wolde 1999
+    ! Forcing with total monthly fields
+
+    IMPLICIT NONE
+
+
+    ! --------------------------------------------------------------------------
+    ! Declaration of global variables
+    ! --------------------------------------------------------------------------
+
+    ! Input variables: 
+    INTEGER, INTENT(IN)  :: nx, ny ! grid size
+
+    REAL(dp), INTENT(IN)  :: tp(nx,ny,12)  ! total monthly precip (m/yr)
+    REAL(dp), INTENT(IN)  :: t2m(nx,ny,12)  ! monthly mean 2m temperature (deg)
+
+    ! Output variables: 
+    REAL(dp), INTENT(OUT) :: smb(nx,ny)     ! surface mass balance (m/yr)
+    REAL(dp), INTENT(OUT) :: snow(nx,ny)
+    REAL(dp), INTENT(OUT) :: rain(nx,ny)
+    REAL(dp), INTENT(OUT) :: sir(nx,ny)
+    REAL(dp), INTENT(OUT) :: abl(nx,ny)           ! runoff (m/yr)
+    REAL(dp), INTENT(OUT) :: pdd(nx,ny)
+    REAL(dp), INTENT(OUT) :: rfr(nx,ny)
+
+    REAL(dp), INTENT(IN)                :: ddfactorsnow
+    REAL(dp), INTENT(IN)                :: ddfactorice
+    REAL(dp), INTENT(IN)                :: sigma
+    REAL(dp), INTENT(IN)                :: rainlimit
+
+    ! Local variables
+    REAL(dp), allocatable               :: tm(:,:,:)
+    REAL(dp), allocatable               :: tpa(:,:)
+
+    REAL(dp), PARAMETER                 :: pmax = 0.3 ! See update in Janssens and Huybrechts 2000
+ 
+
+    ! Allocate arrays
+    allocate(tm(nx,ny,12))
+    allocate(tpa(nx,ny))
+
+    ! Monthly temperature
+    tm = t2m - 273.15
+
+    ! Determine number of positive degree days per year and rain fraction
+    call calculate_pdd_monthly(nx, ny, sigma, rainlimit, tm, pdd, rfr)
+
+    ! total annual precip
+    tpa(:,:) = SUM(tp(:,:,:),dim=3)
+
+    ! Distinguish rain and snow according to rain fraction
+    rain = tpa * rfr
+    snow = tpa - rain
+
+    call melt_cascade_2d(nx, ny, ddfactorsnow, ddfactorice, pmax, snow, pdd, tpa, sir, abl)
+
+    ! no melt where insufficient energy
+    WHERE (pdd.LE.0)
+     sir = 0
+     abl = 0
+    END WHERE
+
+    ! smb = snow - abl
+    smb = tpa - abl - rain
+
+  END SUBROUTINE pdd_model_greenland_total_monthly
+
+
+
+  SUBROUTINE pdd_model_greenland_total_yearly(nx, ny, ddfactorsnow, ddfactorice, sigma, rainlimit, acc, t2m, t2j, smb, snow, rain, sir, abl, pdd, rfr)
+    ! Positive degree day model, uddated by Heiko Goelzer, Feb 2022
+    ! Implements Greenland pdd model of Huybrechts and De Wolde 1999
+    ! Forcing with total fields, not anomalies
+
+    IMPLICIT NONE
+
+
+
+    ! --------------------------------------------------------------------------
+    ! Declaration of global variables
+    ! --------------------------------------------------------------------------
+
+    ! Input variables: 
+    INTEGER, INTENT(IN)  :: nx, ny ! grid size
+
+    REAL(dp), INTENT(IN)  :: acc(nx,ny)    ! total yearly accumulation (m/yr)
+    REAL(dp), INTENT(IN)  :: t2m(nx,ny)    ! annual mean 2m temperature (deg)
+    REAL(dp), INTENT(IN)  :: t2j(nx,ny)    ! july 2m temperature (deg)
+
+    ! Output variables: 
+    REAL(dp), INTENT(OUT) :: smb(nx,ny)        ! surface mass balance (m/yr)
+    REAL(dp), INTENT(OUT) :: snow(nx,ny)
+    REAL(dp), INTENT(OUT) :: rain(nx,ny)
+    REAL(dp), INTENT(OUT) :: sir(nx,ny)
+    REAL(dp), INTENT(OUT) :: abl(nx,ny)           ! runoff (m/yr)
+    REAL(dp), INTENT(OUT) :: pdd(nx,ny)
+    REAL(dp), INTENT(OUT) :: rfr(nx,ny)
+
+    REAL(dp), INTENT(IN)                :: ddfactorsnow
+    REAL(dp), INTENT(IN)                :: ddfactorice
+    REAL(dp), INTENT(IN)                :: sigma
+    REAL(dp), INTENT(IN)                :: rainlimit
+
+    ! Local variables
+    REAL(dp), allocatable               :: tma(:,:)
+    REAL(dp), allocatable               :: tmj(:,:)
+
+    REAL(dp), PARAMETER                 :: pmax = 0.3 ! See update in Janssens and Huybrechts 2000
+
+
+    ! Allocate arrays
+    allocate(tma(nx,ny))
+    allocate(tmj(nx,ny))
+
+    ! Global temperature perturbation
+    tma = t2m - 273.15
+
+    ! Summer temperature
+    tmj = t2j - 273.15
+
+    ! Determine number of positive degree days per year and rain fraction
+    call calculate_pdd_yearly(nx, ny, sigma, rainlimit, tma, tmj, pdd, rfr)
+
+    ! Distinguish rain and snow according to rain fraction
+    rain = acc * rfr
+    snow = acc - rain
+
+    call melt_cascade_2d(nx, ny, ddfactorsnow, ddfactorice, pmax, snow, pdd, acc, sir, abl)
+
+    ! no melt where insufficient energy
+    WHERE (pdd.LE.0)
+     sir = 0
+     abl = 0
+    END WHERE
+
+    ! smb = snow - abl
+    smb = acc - abl - rain
+
+    deallocate(tma)
+    deallocate(tmj)
+
+  END SUBROUTINE pdd_model_greenland_total_yearly
+
+
+
+  SUBROUTINE massbalance_pdd_model_greenland(nx, ny, ddfactorsnow, ddfactorice, sigma, rainlimit, lat, Hs, acc_PD, T_anomaly, smb)
+    ! Positive degree day model, added by Heiko Goelzer, Jan 2017
+    ! Implements Greenland pdd model of Huybrechts and De Wolde 1999
+
+    IMPLICIT NONE
+
+
+
+    ! --------------------------------------------------------------------------
+    ! Declaration of global variables
+    ! --------------------------------------------------------------------------
+
+    ! Input variables: 
+    INTEGER, INTENT(IN)  :: nx, ny ! grid size
+
+    REAL(dp), INTENT(IN)  :: lat(nx,ny)            ! latitude (deg+)
+    REAL(dp), INTENT(IN)  :: Hs(nx,ny)             ! surface elevation (m)
+    ! Hs_PD not in use; compare with Antarctic model
+!    REAL(dp), DIMENSION(   nx,ny), INTENT(IN)  :: Hs_PD         ! reference surface elevation (m)
+
+    REAL(dp), INTENT(IN)  :: acc_PD(nx,ny)    ! reference accumulation (m/yr)
+    REAL(dp), INTENT(IN)  :: T_anomaly(nx,ny) ! temperature anomaly w.r.t. PD (deg)
+
+    ! Output variables: 
+    REAL(dp), INTENT(OUT) :: smb(nx,ny)        ! surface mass balance (m/yr)
 
     ! Local variables
     REAL(dp), allocatable               :: tma(:,:)
@@ -46,25 +294,26 @@ CONTAINS
     REAL(dp), allocatable               :: s_prec(:,:)
     REAL(dp), allocatable               :: h_inv(:,:)
 
-    REAL(dp), PARAMETER                 :: ddfactorsnow = 0.003
-    REAL(dp), PARAMETER                 :: ddfactorice = 0.008
+    REAL(dp), INTENT(IN)                :: ddfactorsnow
+    REAL(dp), INTENT(IN)                :: ddfactorice
+    REAL(dp), INTENT(IN)                :: sigma
+    REAL(dp), INTENT(IN)                :: rainlimit
+
     REAL(dp), PARAMETER                 :: pmax = 0.3 ! See update in Janssens and Huybrechts 2000
- 
-    INTEGER                             :: i, j
-    REAL(dp)                            :: pdds, ablv, sifm
+
 
     ! Allocate arrays
-    allocate(tma(ny,nx))
-    allocate(snow(ny,nx))
-    allocate(rain(ny,nx))
-    allocate(sir(ny,nx))
-    allocate(acc(ny,nx))
-    allocate(abl(ny,nx))
-    allocate(tmj(ny,nx))
-    allocate(pdd(ny,nx))
-    allocate(rfr(ny,nx))
-    allocate(s_prec(ny,nx))
-    allocate(h_inv(ny,nx))
+    allocate(tma(nx,ny))
+    allocate(snow(nx,ny))
+    allocate(rain(nx,ny))
+    allocate(sir(nx,ny))
+    allocate(acc(nx,ny))
+    allocate(abl(nx,ny))
+    allocate(tmj(nx,ny))
+    allocate(pdd(nx,ny))
+    allocate(rfr(nx,ny))
+    allocate(s_prec(nx,ny))
+    allocate(h_inv(nx,ny))
 
     ! Determination of annual temperature 
     h_inv=20.*(abs(lat)-65.) 
@@ -92,52 +341,16 @@ CONTAINS
     acc = acc_PD * (1.+s_prec)**T_anomaly
 
     ! Determine number of positive degree days per year and rain fraction
-    call calculate_pdd_monthly(nx, ny, tma, tmj, pdd, rfr)
+    call calculate_pdd_yearly(nx, ny, sigma, rainlimit, tma, tmj, pdd, rfr)
 
     ! Distinguish rain and snow according to rain fraction
     rain = acc * rfr
     snow = acc - rain
 
-    ! Melt calculation
-    DO j=1,ny
-      DO i=1,nx
+    call melt_cascade_2d(nx, ny, ddfactorsnow, ddfactorice, pmax, snow, pdd, acc, sir, abl)
 
-        ! pdd needed for snow melting
-        pdds = snow(j,i)/ddfactorsnow
-        ! potential for refreezing 
-        sifm = pmax*snow(j,i)
-        ! limit potential by total precipitation (acc)
-        IF(sifm.GT.acc(j,i)) sifm=acc(j,i)
-
-        ! Estimate available melt 
-        IF(pdds.LE.pdd(j,i)) THEN
-         ! Remainig energy (pdd) used for ice melt
-         ablv = (pdd(j,i)-pdds)*ddfactorice+snow(j,i)
-        ELSE
-         ! All energy (pdd) used for snow melt
-         ablv = pdd(j,i)*ddfactorsnow
-        ENDIF
-
-        ! Calculate refreezing
-        IF(ablv.GT.acc(j,i)+sifm) THEN
-         ! entire snowpack melted, no refreezing
-         sir(j,i) = 0.
-        ELSEIF(ablv.GT.acc(j,i)) THEN
-         sir(j,i) = acc(j,i)+sifm-ablv
-        ELSEIF(ablv.GT.sifm) THEN
-         sir(j,i) = sifm
-        ELSE
-         sir(j,i) = ablv
-        ENDIF
-        abl(j,i) = ablv - sifm
-        ! Sanity check
-        IF(abl(j,i).lt.0) abl(j,i)=0
-
-      END DO
-    END DO
-
-    ! no melt where insuffient energy
-    WHERE (pdd.LE.0) 
+    ! no melt where insufficient energy
+    WHERE (pdd.LE.0)
      sir = 0
      abl = 0
     END WHERE
@@ -149,101 +362,134 @@ CONTAINS
 
 
 
-  SUBROUTINE calculate_pdd_monthly(nx, ny, tma, tmj, pdd, rfr)
+  SUBROUTINE calculate_pdd_yearly(nx, ny, sigma, rainlimit, tma, tmj, pdd, rfr)
     ! Positive degree day model, added by Heiko Goelzer, Jan 2017
     ! PDD model from Huybrechts and De Wolde 1999
+    ! Seasonal cycle is parametised using annual mean and july temperature
 
     IMPLICIT NONE
 
-    INTEGER, PARAMETER :: dp = KIND(1.0D0) ! Kind of double precision numbers.
-    REAL, PARAMETER :: triple_point_of_water = 273.16_dp
 
-    REAL, PARAMETER ::  pi = 2.0_dp * ACOS(0.0_dp)
 
     ! Input variables: 
     INTEGER, INTENT(IN)  :: nx, ny ! grid size
 
-    REAL(dp), INTENT(IN)  :: tma(ny,nx)
-    REAL(dp), INTENT(IN)  :: tmj(ny,nx)
+    REAL(dp), INTENT(IN)  :: tma(nx,ny)
+    REAL(dp), INTENT(IN)  :: tmj(nx,ny)
 
     ! Output variables: 
-    REAL(dp), INTENT(OUT)  :: pdd(ny,nx)
-    REAL(dp), INTENT(OUT)  :: rfr(ny,nx)
+    REAL(dp), INTENT(OUT)  :: pdd(nx,ny)
+    REAL(dp), INTENT(OUT)  :: rfr(nx,ny)
 
     ! Local variables:
-    LOGICAL, SAVE             :: first_call = .TRUE.
+    REAL(dp), INTENT(IN)      :: sigma
+    REAL(dp), INTENT(IN)      :: rainlimit
+
     INTEGER                   :: i, j, k
-    REAL(dp), PARAMETER       :: sigma = 4.5 
-    REAL(dp), PARAMETER       :: rainlimit = 1.0
-    REAL(dp), PARAMETER       :: valmax = 6.0
-    INTEGER,  PARAMETER       :: nintx=1200
     REAL(dp), allocatable     :: pdd12(:,:,:)
     REAL(dp), allocatable     :: rfr12(:,:,:)
     REAL(dp)                  :: help1, help2, help3, ampl, tempnorm, fac2, ntemp12
 
-    ! PDD
-    REAL(dp), SAVE            :: taberf(-nintx:nintx),tabepdd(-nintx:nintx)
-    REAL(dp)                  :: deltax,sq2pi,fac1,fdx,help,xi,xj,yi,yj
-
     ! Allocate arrays
-    allocate(pdd12(12,ny,nx))
-    allocate(rfr12(12,ny,nx))
+    allocate(pdd12(nx,ny,12))
+    allocate(rfr12(nx,ny,12))
 
-    
-    ! ------------------------------------------------------------------------
-    ! Calculate lookup tables for error function and expected PDD on first call
-    ! Huybrechts and De Wolde 1999 (C10), (C15)
+    call init_pdd_lut()
 
-    IF(first_call) THEN
-     taberf(0)=0.0
-     deltax=valmax/nintx
-     sq2pi=(2*pi)**(0.5)
-     fac1=deltax/(2*sq2pi)
-     tabepdd(0)=1./sq2pi
-     xj=0.
-     yj=1.
-     DO i=1,nintx
-       xi=xj
-       yi=yj
-       xj=xj+deltax
-       yj=exp(-0.5*xj*xj)
-       fdx=(yi+yj)*fac1
-       taberf(i) =taberf(i-1)+fdx
-       taberf(-i)=-taberf(i)
-       help=yj/sq2pi+xj*taberf(i)
-       tabepdd(i) =help+xj*0.5
-       tabepdd(-i)=help-xj*0.5
-     END DO
-     first_call = .FALSE.
-    END IF
-
-    ! --------------------------------------------------------------
-    
-    ! Calculate rain fraction and number of PDDs 
+    ! Calculate rain fraction and number of PDDs
     ! Huybrechts and De Wolde 1999 (C10), (C15)
     help1=sigma*360./12.
-    fac2=pi/6. 
+    fac2=pi/6.
     DO j=1,ny
       DO i=1,nx
-        pdd(j,i)=0.0
-        rfr(j,i)=0.0
+        pdd(i,j)=0.0
+        rfr(i,j)=0.0
         ! Seosonal amplitude
-        ampl=abs(tmj(j,i)-tma(j,i))
+        ampl=abs(tmj(i,j)-tma(i,j))
         DO k=1,12
           ! Current temperature
-          ntemp12=tma(j,i)+ampl*cos(fac2*(k-1))
+          ntemp12=tma(i,j)+ampl*cos(fac2*(k-1))
           ntemp12=ntemp12/sigma
           help2=nintx*ntemp12/amax1(abs(ntemp12),valmax)
           ! Monthly PDDs
-          pdd12(k,j,i)=help1*amax1(tabepdd(nint(help2)),ntemp12)
+          pdd12(i,j,k)=help1*amax1(tabepdd(nint(help2)),ntemp12)
           ! Annual PDDS
-          pdd(j,i)=pdd(j,i)+pdd12(k,j,i)  
+          pdd(i,j)=pdd(i,j)+pdd12(i,j,k)  
           tempnorm=ntemp12-rainlimit/sigma
           help3=nintx*tempnorm/amax1(abs(tempnorm),valmax)  
           ! Monthly rain fraction
-          rfr12(k,j,i)=taberf(nint(help3))+0.5
+          rfr12(i,j,k)=taberf(nint(help3))+0.5
           ! Annual rain fraction
-          rfr(j,i)=rfr(j,i)+rfr12(k,j,i)/12.  
+          rfr(i,j)=rfr(i,j)+rfr12(i,j,k)/12.  
+        END DO
+      END DO
+    END DO
+
+
+    deallocate(pdd12)
+    deallocate(rfr12)
+
+
+  END SUBROUTINE calculate_pdd_yearly
+
+
+
+  SUBROUTINE calculate_pdd_monthly(nx, ny, sigma, rainlimit, tm, pdd, rfr)
+    ! Positive degree day model, added by Heiko Goelzer, Feb 2022
+    ! PDD model from Huybrechts and De Wolde 1999
+    ! Monthly input fields
+
+    IMPLICIT NONE
+
+
+
+    ! Input variables: 
+    INTEGER, INTENT(IN)  :: nx, ny ! grid size
+
+    REAL(dp), INTENT(IN)  :: tm(nx,ny,12) ! monthly temperature 
+
+    ! Output variables: 
+    REAL(dp), INTENT(OUT)  :: pdd(nx,ny)
+    REAL(dp), INTENT(OUT)  :: rfr(nx,ny)
+
+    ! Local variables:
+    REAL(dp), INTENT(IN)      :: sigma
+    REAL(dp), INTENT(IN)      :: rainlimit
+
+    INTEGER                   :: i, j, k
+    REAL(dp), allocatable     :: pdd12(:,:,:)
+    REAL(dp), allocatable     :: rfr12(:,:,:)
+    REAL(dp)                  :: help1, help2, help3, ampl, tempnorm, ntemp12
+
+    ! Allocate arrays
+    allocate(pdd12(nx,ny,12))
+    allocate(rfr12(nx,ny,12))
+
+    call init_pdd_lut()
+
+    ! Calculate rain fraction and number of PDDs
+    ! Huybrechts and De Wolde 1999 (C10), (C15)
+    help1=sigma*360./12.
+    DO j=1,ny
+      DO i=1,nx
+        pdd(i,j)=0.0
+        rfr(i,j)=0.0
+        ! Seosonal cycle
+        DO k=1,12
+          ! Current temperature
+          ntemp12=tm(i,j,k)
+          ntemp12=ntemp12/sigma
+          help2=nintx*ntemp12/amax1(abs(ntemp12),valmax)
+          ! Monthly PDDs
+          pdd12(i,j,k)=help1*amax1(tabepdd(nint(help2)),ntemp12)
+          ! Annual PDDS
+          pdd(i,j)=pdd(i,j)+pdd12(i,j,k)  
+          tempnorm=ntemp12-rainlimit/sigma
+          help3=nintx*tempnorm/amax1(abs(tempnorm),valmax)  
+          ! Monthly rain fraction
+          rfr12(i,j,k)=taberf(nint(help3))+0.5
+          ! Annual rain fraction
+          rfr(i,j)=rfr(i,j)+rfr12(i,j,k)/12.  
         END DO
       END DO
     END DO
@@ -255,6 +501,185 @@ CONTAINS
 
   END SUBROUTINE calculate_pdd_monthly
 
+  SUBROUTINE calculate_pdd_monthly_inout(nx, ny, tm12, pdd12, rfr12)
+    ! Positive degree day model, added by Heiko Goelzer, Mar 2026
+    ! PDD model from Huybrechts and De Wolde 1999
+    ! Monthly input and output fields
 
+    IMPLICIT NONE
+
+
+
+    ! Input variables: 
+    INTEGER, INTENT(IN)  :: nx, ny ! grid size
+
+    REAL(dp), INTENT(IN)  :: tm12(nx,ny,12) ! monthly temperature (C)
+
+    ! Output variables: 
+    REAL(dp), INTENT(OUT)  :: pdd12(nx,ny,12)
+    REAL(dp), INTENT(OUT)  :: rfr12(nx,ny,12)
+
+    ! Local variables:
+    INTEGER                   :: i, j, k
+    REAL(dp), PARAMETER       :: sigma = 4.5
+    REAL(dp), PARAMETER       :: rainlimit = 1.0
+    REAL(dp)                  :: help1, help2, help3, ampl, tempnorm, ntemp
+
+    call init_pdd_lut()
+
+    ! Calculate rain fraction and number of PDDs
+    ! Huybrechts and De Wolde 1999 (C10), (C15)
+    help1=sigma*360./12.
+    DO j=1,ny
+      DO i=1,nx
+        DO k=1,12
+          ! Current temperature
+          ntemp=tm12(i,j,k)
+          ntemp=ntemp/sigma
+          help2=nintx*ntemp/amax1(abs(ntemp),valmax)
+          ! Monthly PDDs
+          pdd12(i,j,k)=help1*amax1(tabepdd(nint(help2)),ntemp)
+          tempnorm=ntemp-rainlimit/sigma
+          help3=nintx*tempnorm/amax1(abs(tempnorm),valmax)  
+          ! Monthly rain fraction
+          rfr12(i,j,k)=taberf(nint(help3))+0.5
+        END DO
+      END DO
+    END DO
+
+
+  END SUBROUTINE calculate_pdd_monthly_inout
+
+
+  SUBROUTINE calculate_pdd_monthly_inout_taj(nx, ny, sigma, rainlimit, tm12, pdd12, rfr12)
+    ! Positive degree day model, added by Heiko Goelzer, Mar 2026
+    ! PDD model from Huybrechts and De Wolde 1999
+    ! Monthly input and output fields
+    !   Seasonal cycle is parametised using annual mean and july temperature
+    !   This is only for testing backwards compatability ! 
+
+    IMPLICIT NONE
+
+
+
+    ! Input variables: 
+    INTEGER, INTENT(IN)  :: nx, ny ! grid size
+
+    REAL(dp), INTENT(IN)  :: tm12(nx,ny,12) ! monthly temperature (C)
+
+    ! Output variables: 
+    REAL(dp), INTENT(OUT)  :: pdd12(nx,ny,12)
+    REAL(dp), INTENT(OUT)  :: rfr12(nx,ny,12)
+
+    ! Local variables:
+    REAL(dp), INTENT(IN)      :: sigma
+    REAL(dp), INTENT(IN)      :: rainlimit
+
+    INTEGER                   :: i, j, k
+    REAL(dp)                  :: help1, help2, help3, ampl, tempnorm, ntemp, fac2, tma
+
+    call init_pdd_lut()
+
+    ! Calculate rain fraction and number of PDDs
+    ! Huybrechts and De Wolde 1999 (C10), (C15)
+    help1=sigma*360./12.
+    fac2=pi/6. 
+    DO j=1,ny
+      DO i=1,nx
+        ! Annual mean
+        tma = 0.0
+        DO k=1,12
+          tma = tma + tm12(i,j,k)/12.
+        END DO
+        ! Seosonal amplitude
+        ampl=abs(tm12(i,j,7)-tma)
+        DO k=1,12
+          ! Current temperature, parameterised seasonal cyclce
+          ! was monthly temp: ntemp=tm12(i,j,k)
+          ! note -cos to aling seasonal cycle for monthly output 
+          ntemp=tma-ampl*cos(fac2*(k-1)) 
+          ntemp=ntemp/sigma
+          help2=nintx*ntemp/amax1(abs(ntemp),valmax)
+          ! Monthly PDDs
+          pdd12(i,j,k)=help1*amax1(tabepdd(nint(help2)),ntemp)
+          tempnorm=ntemp-rainlimit/sigma
+          help3=nintx*tempnorm/amax1(abs(tempnorm),valmax)  
+          ! Monthly rain fraction
+          rfr12(i,j,k)=taberf(nint(help3))+0.5
+        END DO
+      END DO
+    END DO
+
+
+  END SUBROUTINE calculate_pdd_monthly_inout_taj
+
+
+
+  SUBROUTINE melt_cascade_2d(nx, ny, ddfactorsnow, ddfactorice, pmax, snow, pdd, tpa, sir, abl)
+    INTEGER,  INTENT(IN)  :: nx, ny
+    REAL(dp), INTENT(IN)  :: ddfactorsnow, ddfactorice, pmax
+    REAL(dp), INTENT(IN)  :: snow(nx,ny), pdd(nx,ny), tpa(nx,ny)
+    REAL(dp), INTENT(OUT) :: sir(nx,ny), abl(nx,ny)
+    INTEGER  :: i, j
+    REAL(dp) :: pdds, ablv, sifm
+    DO j = 1, ny
+      DO i = 1, nx
+        pdds = snow(i,j) / ddfactorsnow
+        sifm = pmax * snow(i,j)
+        IF (sifm > tpa(i,j)) sifm = tpa(i,j)
+        IF (pdds <= pdd(i,j)) THEN
+          ablv = (pdd(i,j) - pdds) * ddfactorice + snow(i,j)
+        ELSE
+          ablv = pdd(i,j) * ddfactorsnow
+        END IF
+        IF (ablv > tpa(i,j) + sifm) THEN
+          sir(i,j) = 0.
+        ELSE IF (ablv > tpa(i,j)) THEN
+          sir(i,j) = tpa(i,j) + sifm - ablv
+        ELSE IF (ablv > sifm) THEN
+          sir(i,j) = sifm
+        ELSE
+          sir(i,j) = ablv
+        END IF
+        abl(i,j) = ablv - sifm
+        IF (abl(i,j) < 0.) abl(i,j) = 0.
+      END DO
+    END DO
+  END SUBROUTINE melt_cascade_2d
+
+
+  SUBROUTINE melt_cascade_3d(nx, ny, ddfactorsnow, ddfactorice, pmax, snow, pdd, tp, sir, abl)
+    INTEGER,  INTENT(IN)  :: nx, ny
+    REAL(dp), INTENT(IN)  :: ddfactorsnow, ddfactorice, pmax
+    REAL(dp), INTENT(IN)  :: snow(nx,ny,12), pdd(nx,ny,12), tp(nx,ny,12)
+    REAL(dp), INTENT(OUT) :: sir(nx,ny,12), abl(nx,ny,12)
+    INTEGER  :: i, j, k
+    REAL(dp) :: pdds, ablv, sifm
+    DO j = 1, ny
+      DO i = 1, nx
+        DO k = 1, 12
+          pdds = snow(i,j,k) / ddfactorsnow
+          sifm = pmax * snow(i,j,k)
+          IF (sifm > tp(i,j,k)) sifm = tp(i,j,k)
+          IF (pdds <= pdd(i,j,k)) THEN
+            ablv = (pdd(i,j,k) - pdds) * ddfactorice + snow(i,j,k)
+          ELSE
+            ablv = pdd(i,j,k) * ddfactorsnow
+          END IF
+          IF (ablv > tp(i,j,k) + sifm) THEN
+            sir(i,j,k) = 0.
+          ELSE IF (ablv > tp(i,j,k)) THEN
+            sir(i,j,k) = tp(i,j,k) + sifm - ablv
+          ELSE IF (ablv > sifm) THEN
+            sir(i,j,k) = sifm
+          ELSE
+            sir(i,j,k) = ablv
+          END IF
+          abl(i,j,k) = ablv - sifm
+          IF (abl(i,j,k) < 0.) abl(i,j,k) = 0.
+        END DO
+      END DO
+    END DO
+  END SUBROUTINE melt_cascade_3d
 
 END MODULE massbalance_module

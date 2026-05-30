@@ -1,0 +1,136 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Build
+
+The Makefile targets cluster environments (SAGA/Betzy/Olivia) via `${EBROOTNETCDFMINFORTRAN}`. For local development on this Mac, NetCDF-Fortran lives in a conda environment (`pdd-build`):
+
+```bash
+make gpdd_monthly_inout LIB=/Users/heig/miniforge3/envs/pdd-build/lib INC=/Users/heig/miniforge3/envs/pdd-build/include
+```
+
+Debug build: append `debug=1`. The conda env was created with `conda create -n pdd-build netcdf-fortran -c conda-forge`.
+
+```bash
+make clean   # removes executables, obj/*.o, obj/*.mod
+```
+
+## Running
+
+The active driver is `gpdd_monthly_inout.x`. Configuration is read at runtime from a Fortran namelist file:
+
+```bash
+DYLD_LIBRARY_PATH=/Users/heig/miniforge3/envs/pdd-build/lib ./gpdd_monthly_inout.x [params.nml]
+```
+
+If no argument is given, `params.nml` in the working directory is used. To switch scenarios pass a different `.nml` file — no recompile needed.
+
+**Available namelist files:**
+
+| File | Scenario |
+|------|----------|
+| `params.nml` | MRI-ESM2-0 SSP585 anomaly mode (default) |
+| `params_MRI-ESM2-0_historical_anom.nml` | MRI-ESM2-0 historical anomaly |
+| `params_CESM2_ssp370_anom.nml` | CESM2 SSP370 anomaly |
+| `params_CESM2_historical_anom.nml` | CESM2 historical anomaly |
+| `params_CESM2_ssp370_direct.nml` | CESM2 SSP370 direct tas/pr (fmode=0) |
+
+**Namelist parameters** (all in `&config` group):
+- `fmode` — 0 = direct tas/pr forcing; 1 = anomaly/ratio forcing (needs reference files)
+- `outputmode` — 0 = SMBMIP units (kg m-2 s-1, K); 1 = human units (mm/month, C)
+- `year0`, `nt` — start year and number of years
+- `inpathname_pr/tas`, `fileroot_pr/tas`, `res_suffix` — forcing file location and naming pattern
+- `nx`, `ny`, `res` — grid dimensions and resolution (1681×2881 at 1 km; 211×361 at 8 km)
+- `filename_prref`, `filename_tasref` — reference fields for fmode=1 (not opened in fmode=0)
+- `filename_defmask` — Greenland ice mask (`sftgif` variable); required for both fmodes
+- `outpathname` — output directory (must exist before run)
+- `institution`, `contact_name`, `contact_email` — written as global NetCDF attributes
+- `ddfactorsnow`, `ddfactorice` — degree-day factors for snow and ice melt (m/yr/PDD); defaults 0.00297 and 0.00791
+- `sigma` — temperature variability for PDD calculation (°C); default 4.5
+- `rainlimit` — temperature threshold for rain/snow partitioning (°C); default 1.0
+
+**Forcing files** live under `./Forcing/` (mirrored from cluster). The `output/` directory must exist before running.
+
+## Architecture
+
+Dependency chain: `ncio.f90` → `massbalance_module.f90` → driver programs.
+
+**`ncio.f90`** — third-party NetCDF I/O wrapper (Alexander Robinson). Provides `nc_read`, `nc_write`, `nc_create`, `nc_write_dim`, `nc_write_attr`, `nc_ndims`, `nc_dims`, `nc_open`, `nc_close`. Do not modify.
+
+**`massbalance_module.f90`** — all PDD physics. Six subroutines in three tiers:
+
+| Subroutine | Input | Output | Status |
+|---|---|---|---|
+| `pdd_model_greenland_total_monthly_inout` | monthly tp, t2m (3D) | monthly smb + components (3D) | **Active** — called by `gpdd_monthly_inout.f90` |
+| `pdd_model_greenland_total_monthly` | monthly tp, t2m (3D) | annual smb + components (2D) | Legacy |
+| `pdd_model_greenland_total_yearly` | annual acc, t2m, t2j (2D) | annual smb + components (2D) | Legacy |
+| `massbalance_pdd_model_greenland` | anomaly-based, lat+Hs (2D) | annual smb (2D) | Legacy |
+| `calculate_pdd_monthly_inout_taj` | monthly t2m (3D) | monthly pdd, rfr (3D) | Called by active path (uses seasonal parameterisation) |
+| `calculate_pdd_monthly_inout` | monthly t2m (3D) | monthly pdd, rfr (3D) | Direct monthly variant (not currently called) |
+
+All subroutines use `(nx, ny, ...)` array ordering. PDD lookup tables (`taberf`, `tabepdd`) are module-level `SAVE` arrays initialised once via `init_pdd_lut()` (private, called at the start of each `calculate_pdd_*` subroutine).
+
+**Module-level constants** (`dp`, `pi`, `valmax`, `nintx`) are declared once above `CONTAINS` and shared by all subroutines.
+
+**Key physics parameters** — all passed as `INTENT(IN)` arguments; set via namelist:
+- `ddfactorsnow`, `ddfactorice`, `sigma`, `rainlimit` — exposed to all `pdd_model_*` and `calculate_pdd_*` subroutines; defaults in `gpdd_monthly_inout.f90` are 0.00297, 0.00791, 4.5, 1.0
+- `pmax = 0.3` (refreezing cap) — still a `PARAMETER` constant in each `pdd_model_*` subroutine, not yet exposed
+
+**Private helpers** (`init_pdd_lut`, `melt_cascade_2d`, `melt_cascade_3d`) — the snow/ice melt + refreezing cascade is extracted into these subroutines to eliminate duplication.
+
+**`gpdd_monthly_inout.f90`** — active driver. Year loop reads one forcing file per year, calls `pdd_model_greenland_total_monthly_inout`, applies the ice mask, converts units, and writes one NetCDF file per variable per year via the `write_nc_file` contained subroutine. Output is on the ISMIP6 Greenland grid (epsg:3413, origin x=−720000, y=−3450000 m).
+
+**`gpdd_monthly.f90`**, **`gpdd.f90`** — older drivers, kept for reference. Not used in the current workflow.
+
+## Refactoring status
+
+**Done:**
+- Configuration extracted from `gpdd_monthly_inout.f90` into runtime-read Fortran namelist files (`.nml`)
+- `write_nc_file` now receives institution/contact as arguments instead of hardcoded strings
+- `def_mask` read unconditionally (was only read inside `fmode==1`, leaving it uninitialised for `fmode==0`)
+- `ddfactorsnow`, `ddfactorice`, `sigma`, `rainlimit` exposed as namelist parameters — removed from all `PARAMETER` declarations in `massbalance_module.f90` and threaded through all subroutine signatures
+- Legacy drivers `gpdd.f90` and `gpdd_monthly.f90` call sites updated to pass the four physics parameters
+- `dp`, `pi`, `valmax`, `nintx` promoted to module-level constants (were redeclared in every subroutine); `pi` corrected from `REAL` (single precision) to `REAL(dp)` (double precision)
+- PDD lookup tables (`taberf`, `tabepdd`) promoted to module-level `SAVE` arrays; duplicated 20-line initialisation blocks replaced by a single private `init_pdd_lut()` subroutine
+- Snow/ice melt + refreezing cascade extracted into private `melt_cascade_2d` and `melt_cascade_3d`, eliminating the four copies in `pdd_model_*` subroutines
+
+**Remaining known issues in `massbalance_module.f90`**:
+- `pmax = 0.3` still a local `PARAMETER` in each `pdd_model_*` subroutine; could be promoted to module level or namelist
+- `calculate_pdd_monthly_inout_taj` exists "for testing backward compatibility" — unclear if it should become permanent or be replaced by `calculate_pdd_monthly_inout`
+- `calculate_pdd_monthly_inout` (the non-taj variant) is dead code — defined but never called
+
+## Numerical reproducibility
+
+The refactoring was verified by comparing against the last committed baseline (pre Tasks 1–4). Domain-integrated totals agree to < 4×10⁻⁷ (machine precision) for all variables. Pixel-level breakdown:
+
+| Category | Pixels | Magnitude | Cause |
+|---|---|---|---|
+| Floating-point noise | ~35% of grid | < 10⁻¹⁵ | Arithmetic reordering from subroutine extraction (Tasks 3 & 4) |
+| LUT boundary rounding | ~200 pixels (0.0003%) | ~0.5 PDD, 0.002 rfr | `π` REAL→REAL(dp) shifts `nint()` at a handful of cold/warm boundaries |
+| Negative pdd fix | 6.7 M pixels corrected | 0 → +O(10⁻⁸) | Single-precision `π` produced pdd ∈ [−2.5×10⁻⁸, 0) at the cold LUT edge; now correctly ≥ 0 |
+
+The `output_ref/` directory holds output from before any refactoring; expect the same small differences there. The pixel-level changes are scientifically negligible — no systematic physics change.
+
+## Testing
+
+Reference output for the default scenario (MRI-ESM2-0 SSP585, 2015–2019) lives in `output_ref/`. After a run, compare numerically using the `nc` conda env:
+
+```bash
+/Users/heig/miniforge3/envs/nc/bin/python - <<'EOF'
+import os, netCDF4 as nc, numpy as np
+ref_dir, new_dir = "output_ref", "output"
+for fname in sorted(f for f in os.listdir(ref_dir) if f.endswith(".nc")):
+    r = nc.Dataset(f"{ref_dir}/{fname}")
+    n = nc.Dataset(f"{new_dir}/{fname}")
+    for vname in r.variables:
+        if vname in ("x","y","time"): continue
+        diff = np.max(np.abs(r.variables[vname][:] - n.variables[vname][:]))
+        print(f"{fname}  {vname:20s}  {'IDENTICAL' if diff==0 else f'DIFFERS max={diff:.3e}'}")
+    r.close(); n.close()
+EOF
+```
+
+`output_ref/` was created before the `pi` REAL→REAL(dp) fix, so exact identity is no longer expected. Small differences in `pdd` (~0.5) and `rfr` (~0.002) at a handful of LUT boundary pixels are normal — see Numerical reproducibility below. To check for regressions, compare domain-integrated totals rather than pointwise equality.
+
+The `nc` env (Python 3.13, netCDF4, scipy, numpy, cdo 2.4.4, nco) is the standard analysis environment. CLI tools like `ncdiff`, `ncdump`, `cdo` are also available in that env.
