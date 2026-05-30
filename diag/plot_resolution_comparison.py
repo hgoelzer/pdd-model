@@ -5,10 +5,8 @@ plot_resolution_comparison.py
 Side-by-side bar chart of GrIS SMB for 5 resolutions (CESM2 historical, 1950-1954).
 Each year is a group of 5 bars (one per resolution); overlaid line shows the 5-year mean.
 
-Usage (on Betzy with nc conda env):
-    conda run -n nc python3 diag/plot_resolution_comparison.py
-    # or from pdd-model root:
-    python3 diag/plot_resolution_comparison.py
+Usage (on Betzy, from pdd-model root):
+    conda run -n plotting python3 diag/plot_resolution_comparison.py
 
 Output: diag/resolution_comparison.pdf
 """
