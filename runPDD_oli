@@ -1,0 +1,24 @@
+#!/bin/bash
+#SBATCH --job-name=gpdd
+# Accounts: CLIM2Ant: nn11016k, ISMIP7: nn5011k, GREASE: nn8006k
+#SBATCH --account=nn5011k
+#SBATCH --partition=small
+#SBATCH --time=04:00:00
+#SBATCH --mem-per-cpu=4G   # 4G sufficient for 2-16km; use 8G for 1km
+#SBATCH --ntasks=1
+
+set -o errexit
+set -o nounset
+
+SCRIPT_DIR="${SLURM_SUBMIT_DIR:-$(dirname "$0")}"
+source "${SCRIPT_DIR}/setenv.sh"
+module list
+
+## Namelist: pass as positional argument, e.g.:
+##   sbatch runPDD_oli params_CESM2_historical_anom_16km.nml
+NML=${1:-params.nml}
+
+echo "=== Running: ./gpdd_monthly_inout.x ${NML} ==="
+time srun ./gpdd_monthly_inout.x ${NML}
+
+exit 0
