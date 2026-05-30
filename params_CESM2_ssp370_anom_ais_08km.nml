@@ -1,0 +1,36 @@
+&config
+  outputmode = 0
+  outputvars = 1  ! 0=full output  1=acabf only
+  fmode = 1
+
+  inpathname_pr  = "./Forcing/CESM2/ssp370/pr_ratio"
+  inpathname_tas = "./Forcing/CESM2/ssp370/tas_anom"
+  fileroot_pr    = "pr_ratio_CESM2_ssp370_r11i1p1f1"
+  fileroot_tas   = "tas_anom_CESM2_ssp370_r11i1p1f1"
+
+  year0        = 2015
+  nt           = 5
+  fileroot_out = "AIS_NORCEPDD1_CESM2_SSP370_r11i1p1f1"
+
+  ! Grid: 8 km ISMIP6 AIS (epsg:3031, 761x761)
+  nx         = 761
+  ny         = 761
+  res        = 8000.0
+  res_suffix = "i08000m"
+
+  ! AIS reference climatology — update paths when AIS RCM refs are available
+  filename_prref   = "Forcing/ref/pr_ref_08000m.nc"
+  filename_tasref  = "Forcing/ref/tas_ref_08000m.nc"
+  filename_defmask = "Forcing/constant/sftgif_BM3_08000m.nc"
+
+  outpathname = "./output"
+
+  institution   = "NORCE Research"
+  contact_name  = "Heiko Goelzer"
+  contact_email = "heig@norceresearch.no"
+
+  ddfactorsnow = 0.00297
+  ddfactorice  = 0.00791
+  sigma        = 4.5
+  rainlimit    = 1.0
+/

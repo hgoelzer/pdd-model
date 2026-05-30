@@ -1,0 +1,35 @@
+&config
+  outputmode = 0
+  outputvars = 1  ! 0=full output  1=acabf only
+  fmode = 1
+
+  inpathname_pr  = "./Forcing/CESM2/historical/pr_ratio"
+  inpathname_tas = "./Forcing/CESM2/historical/tas_anom"
+  fileroot_pr    = "pr_ratio_CESM2_historical_r11i1p1f1"
+  fileroot_tas   = "tas_anom_CESM2_historical_r11i1p1f1"
+
+  year0        = 1950
+  nt           = 5
+  fileroot_out = "GIS_NORCEPDD1_CESM2_Historical_r11i1p1f1"
+
+  ! Grid: 2 km ISMIP7 GrIS
+  nx         = 841
+  ny         = 1441
+  res        = 2000.0
+  res_suffix = "i02000m"
+
+  filename_prref   = "Forcing/MARv3.14LC26/pr_ref_MARv3.14LC26-monthly-ERA5-1960-1989_02000m.nc"
+  filename_tasref  = "Forcing/MARv3.14LC26/tas_ref_MARv3.14-monthly-ERA5-1960-1989_02000m.nc"
+  filename_defmask = "Forcing/constant/sftgif_promice_02000m.nc"
+
+  outpathname = "./output"
+
+  institution   = "NORCE Research"
+  contact_name  = "Heiko Goelzer"
+  contact_email = "heig@norceresearch.no"
+
+  ddfactorsnow = 0.00297
+  ddfactorice  = 0.00791
+  sigma        = 4.5
+  rainlimit    = 1.0
+/
