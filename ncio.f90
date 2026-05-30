@@ -1246,9 +1246,7 @@ contains
         cmode = nf90_clobber 
         if (.not. clobber) cmode = nf90_noclobber 
 
-        !if (nc4) cmode = nf90_hdf5 
-        ! ajr, 2015-09-17: commented this out, because nf90_hdf5 object doesn't exist for all
-        ! installed versions of netcdf. This should be made more robust!!
+        if (nc4) cmode = nf90_netcdf4   ! nf90_netcdf4 available since netcdf-fortran 4.x
 
         ! Get ncio version for writing
         write(history,"(a,f5.2)") "Dataset generated using ncio v", NCIO_VERSION
