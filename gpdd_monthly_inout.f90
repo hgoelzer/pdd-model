@@ -22,6 +22,7 @@ program gpdd
   character(len=256) :: contact_email
 
   integer :: nx, ny, nt
+  integer :: time_ref_year
   double precision :: ddfactorsnow, ddfactorice, sigma, rainlimit
   integer :: nml_unit, nml_ios, narg
   integer :: i, j, t, year, year0, m, k
@@ -72,7 +73,7 @@ program gpdd
        outputmode, outputvars, outputfreq, fmode, deflate_level, &
        inpathname_pr, inpathname_tas, &
        fileroot_pr, fileroot_tas, &
-       year0, nt, fileroot_out, &
+       year0, nt, time_ref_year, fileroot_out, &
        nx, ny, res, res_suffix, &
        filename_prref, filename_tasref, filename_defmask, &
        outpathname, &
@@ -107,6 +108,7 @@ program gpdd
   ddfactorice   = 0.00791d0
   sigma         = 4.5d0
   rainlimit     = 1.0d0
+  time_ref_year = 1850
 
   ! Read namelist file: use first CLI argument, else default "params.nml"
   narg = command_argument_count()
@@ -133,7 +135,7 @@ program gpdd
   ncio_deflate_level = deflate_level
 
   write(*,*) "## fmode=", fmode, "  outputmode=", outputmode, "  outputvars=", outputvars, "  outputfreq=", outputfreq
-  write(*,*) "## year0=", year0, "  nt=", nt
+  write(*,*) "## year0=", year0, "  nt=", nt, "  time_ref_year=", time_ref_year
   write(*,*) "## nx=", nx, "  ny=", ny, "  res=", res
   write(*,*) "## res_suffix=    ", trim(res_suffix)
   write(*,*) "## inpathname_pr= ", trim(inpathname_pr)
@@ -527,13 +529,13 @@ contains
     ! Internal variables
     character(len=256) :: cyear
     character(len=256) :: filename
+    character(len=40)  :: time_units
     double precision :: days
 
     ! Construct output filename
     write (cyear, "(I0.4)") year
-    days = (year-1850.0)*360.0+15 ! register monthly means to mid month on 360-day calendar
-    !write(*,*) "### root: ", fileroot
-    !write(*,*) "### cyear: ", cyear
+    days = (year - dble(time_ref_year)) * 360.0d0 + 15.0d0
+    write (time_units, "(A,I0.4,A)") "days since ", time_ref_year, "-01-01 00:00:00"
     filename = trim(outpathname) // "/" // trim(varname) &
          // "_" // trim(fileroot) // "_" // trim(cyear) // ".nc"
     write(*,*) "### output file: ", trim(filename)
@@ -550,7 +552,7 @@ contains
     call nc_write_dim(filename,"x",x=-720000.d0,dx=res,nx=nx,units="m")
     call nc_write_dim(filename,"y",x=-3450000.d0,dx=res,nx=ny,units="m")
     call nc_write_dim(filename,"time",x=days,dx=30.d0,nx=12, &
-         units="days since 1850-01-01 00:00:00",calendar="360_day", unlimited=.TRUE.)
+         units=trim(time_units),calendar="360_day", unlimited=.TRUE.)
 
     ! Write output
     call nc_write(filename,varname,avar(:,:,:),dim1="x",dim2="y",dim3="time",units=units, long_name=longname)
@@ -575,11 +577,13 @@ contains
     character(len=*), INTENT(IN) :: institution, contact_name, contact_email
 
     character(len=256) :: cyear, filename
+    character(len=40)  :: time_units
     double precision :: days
 
     write (cyear, "(I0.4)") year
     ! Register annual mean at mid-year (day 180 on 360-day calendar)
-    days = (year - 1850.0d0) * 360.0d0 + 180.0d0
+    days = (year - dble(time_ref_year)) * 360.0d0 + 180.0d0
+    write (time_units, "(A,I0.4,A)") "days since ", time_ref_year, "-01-01 00:00:00"
     filename = trim(outpathname) // "/" // trim(varname) &
          // "_" // trim(fileroot) // "_" // trim(cyear) // ".nc"
     write(*,*) "### output file: ", trim(filename)
@@ -595,7 +599,7 @@ contains
     call nc_write_dim(filename, "x", x=-720000.d0,   dx=res, nx=size(avar,1), units="m")
     call nc_write_dim(filename, "y", x=-3450000.d0,  dx=res, nx=size(avar,2), units="m")
     call nc_write_dim(filename, "time", x=days, dx=360.d0, nx=1, &
-         units="days since 1850-01-01 00:00:00", calendar="360_day", unlimited=.TRUE.)
+         units=trim(time_units), calendar="360_day", unlimited=.TRUE.)
 
     call nc_write(filename, varname, avar(:,:,:), dim1="x", dim2="y", dim3="time", &
          units=units, long_name=longname)
