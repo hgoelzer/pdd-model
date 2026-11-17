@@ -63,8 +63,8 @@ touch output_valA/.wtest && rm output_valA/.wtest
 touch output_valB/.wtest && rm output_valB/.wtest
 grep -q 'outpathname = "./output_valA"' params_val_A.nml || { echo "ERROR: outpathname missing in params_val_A.nml"; exit 1; }
 grep -q 'outpathname = "./output_valB"' params_val_B.nml || { echo "ERROR: outpathname missing in params_val_B.nml"; exit 1; }
-srun ./gpdd_monthly_inout_mpi.x params_val_A.nml > log_val_A.txt 2>&1 || { sleep 10; srun ./gpdd_monthly_inout_mpi.x params_val_A.nml > log_val_A.txt 2>&1; }
-srun ./gpdd_monthly_inout_mpi.x params_val_B.nml > log_val_B.txt 2>&1 || { sleep 10; srun ./gpdd_monthly_inout_mpi.x params_val_B.nml > log_val_B.txt 2>&1; }
+srun --mpi=pmix ./gpdd_monthly_inout_mpi.x params_val_A.nml > log_val_A.txt 2>&1 || { sleep 10; srun --mpi=pmix ./gpdd_monthly_inout_mpi.x params_val_A.nml > log_val_A.txt 2>&1; }
+srun --mpi=pmix ./gpdd_monthly_inout_mpi.x params_val_B.nml > log_val_B.txt 2>&1 || { sleep 10; srun --mpi=pmix ./gpdd_monthly_inout_mpi.x params_val_B.nml > log_val_B.txt 2>&1; }
 
 echo "== 5. Grid metadata check (run A acabf) =="
 $PY - <<'EOF'
