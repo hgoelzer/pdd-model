@@ -52,13 +52,13 @@ COMMON_HEADER='&config
   rainlimit    = 1.0
   pmax = 0.3'
 
-printf '%s\n  seasonalcycle = 1\n  x0 = -3040000.0\n  y0 = -3040000.0\n  grid_information = "ISMIP6 grid, epsg:3031"\n/\n' "$COMMON_HEADER" > params_val_A.nml
-printf '%s\n  seasonalcycle = 0\n  x0 = -3040000.0\n  y0 = -3040000.0\n  grid_information = "ISMIP6 grid, epsg:3031"\n/\n' "$COMMON_HEADER" > params_val_B.nml
+printf '%s\n  outpathname = "./output_valA"\n  seasonalcycle = 1\n  x0 = -3040000.0\n  y0 = -3040000.0\n  grid_information = "ISMIP6 grid, epsg:3031"\n/\n' "$COMMON_HEADER" > params_val_A.nml
+printf '%s\n  outpathname = "./output_valB"\n  seasonalcycle = 0\n  x0 = -3040000.0\n  y0 = -3040000.0\n  grid_information = "ISMIP6 grid, epsg:3031"\n/\n' "$COMMON_HEADER" > params_val_B.nml
 
 echo "== 4. Run A (seasonalcycle=1, archive-repro) and B (seasonalcycle=0, SH phase) =="
 mkdir -p output_valA output_valB
-sed 's|outpathname.*|outpathname = "./output_valA"|' params_val_A.nml > /tmp/na.nml && mv /tmp/na.nml params_val_A.nml
-sed 's|outpathname.*|outpathname = "./output_valB"|' params_val_B.nml > /tmp/nb.nml && mv /tmp/nb.nml params_val_B.nml
+grep -q 'outpathname = "./output_valA"' params_val_A.nml || { echo "ERROR: outpathname missing in params_val_A.nml"; exit 1; }
+grep -q 'outpathname = "./output_valB"' params_val_B.nml || { echo "ERROR: outpathname missing in params_val_B.nml"; exit 1; }
 srun ./gpdd_monthly_inout_mpi.x params_val_A.nml > log_val_A.txt 2>&1
 srun ./gpdd_monthly_inout_mpi.x params_val_B.nml > log_val_B.txt 2>&1
 
