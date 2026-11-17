@@ -56,14 +56,21 @@ printf '%s\n  outpathname = "./output_valA"\n  seasonalcycle = 1\n  x0 = -304000
 printf '%s\n  outpathname = "./output_valB"\n  seasonalcycle = 0\n  x0 = -3040000.0\n  y0 = -3040000.0\n  grid_information = "ISMIP6 grid, epsg:3031"\n/\n' "$COMMON_HEADER" > params_val_B.nml
 
 echo "== 4. Run A (seasonalcycle=1, archive-repro) and B (seasonalcycle=0, SH phase) =="
+rm -rf output_valA output_valB
 mkdir -p output_valA output_valB
 grep -q 'outpathname = "./output_valA"' params_val_A.nml || { echo "ERROR: outpathname missing in params_val_A.nml"; exit 1; }
 grep -q 'outpathname = "./output_valB"' params_val_B.nml || { echo "ERROR: outpathname missing in params_val_B.nml"; exit 1; }
 srun ./gpdd_monthly_inout_mpi.x params_val_A.nml > log_val_A.txt 2>&1
 srun ./gpdd_monthly_inout_mpi.x params_val_B.nml > log_val_B.txt 2>&1
 
-echo "== 5. Grid metadata check (run A acabf header) =="
-$NCDUMP -h output_valA/acabf_AIS_NORCEPDD1_CESM2_Historical_r11i1p1f1_1950.nc | grep -E 'x0|x =|actual_range|grid_information' || true
+echo "== 5. Grid metadata check (run A acabf) =="
+$PY - <<'EOF'
+import netCDF4 as nc
+f = nc.Dataset("output_valA/acabf_AIS_NORCEPDD1_CESM2_Historical_r11i1p1f1_1950.nc")
+print("x:", f.variables["x"][0].item(), "..", f.variables["x"][-1].item(),
+      "  y:", f.variables["y"][0].item(), "..", f.variables["y"][-1].item())
+print("grid_information:", getattr(f, "grid_information", "MISSING"))
+EOF
 
 echo "== 6. Annual scalar sums (acabf, mrro, prsn, prra) A vs B =="
 $PY - <<'EOF'
