@@ -1,0 +1,55 @@
+&config
+  ! GrIS ISMIP7 sensitivity run: CESM2 historical 1950-2014, 16 km, all 8
+  ! vars, monthly, SMBMIP units. Identical to the production config
+  ! (params_CESM2_historical_anom_16km.nml, default physics) except
+  ! seasonalcycle=0: actual monthly temperatures instead of the prescribed
+  ! July-peak cycle (taj). Paired with ..._sc1.nml (taj twin) to quantify
+  ! the effect on Greenland.
+  outputmode = 0
+  outputvars = 0
+  fmode = 1
+
+  inpathname_pr  = "./Forcing/CESM2/historical/pr_ratio"
+  inpathname_tas = "./Forcing/CESM2/historical/tas_anom"
+  fileroot_pr    = "pr_ratio_CESM2_historical_r11i1p1f1"
+  fileroot_tas   = "tas_anom_CESM2_historical_r11i1p1f1"
+
+  year0        = 1950
+  nt           = 65
+  fileroot_out = "GIS_NORCEPDD1_CESM2_Historical_r11i1p1f1"
+
+  ! Grid: 16 km ISMIP7 GrIS
+  nx         = 106
+  ny         = 181
+  res        = 16000.0
+  res_suffix = "i16000m"
+
+  ! Reference files (fmode=1)
+  filename_prref   = "Forcing/MARv3.14LC26/pr_ref_MARv3.14LC26-monthly-ERA5-1960-1989_16000m.nc"
+  filename_tasref  = "Forcing/MARv3.14-monthly-ERA5-1960-1989_16000m.nc"
+  filename_defmask = "Forcing/constant/sftgif_promice_16000m.nc"
+
+  outpathname = "./output_sc0"
+
+  institution   = "NORCE Research"
+  contact_name  = "Heiko Goelzer"
+  contact_email = "heig@norceresearch.no"
+
+  ! PDD physics parameters (production defaults)
+  ddfactorsnow = 0.00297
+  ddfactorice  = 0.00791
+  sigma        = 4.5
+  rainlimit    = 1.0
+
+  ! Retention: max fraction of monthly snowfall retained (Janssens and
+  ! Huybrechts 2000)
+  pmax = 0.3
+
+  ! Seasonal cycle: 0 = actual monthly temperatures
+  seasonalcycle = 0
+
+  ! Output grid: ISMIP6 GrIS (epsg:3413), production origins
+  x0 = -720000.0
+  y0 = -3450000.0
+  grid_information = "ISMIP6 grid, epsg:3413"
+/
