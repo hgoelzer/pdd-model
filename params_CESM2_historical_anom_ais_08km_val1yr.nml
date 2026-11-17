@@ -1,0 +1,54 @@
+&config
+  ! Preflight for the AIS SMBMIP rerun: 1-yr (1950) of the historical config.
+  ! Gate: must reproduce validation run B (seasonalcycle=0, defaults):
+  ! acabf 2329.1, mrro 344.4, prsn 2642.4, prra 31.0 Gt/yr.
+  outputmode = 0
+  outputvars = 0
+  fmode = 1
+
+  inpathname_pr  = "./Forcing/CESM2/historical/pr_ratio"
+  inpathname_tas = "./Forcing/CESM2/historical/tas_anom"
+  fileroot_pr    = "pr_ratio_Amon_CESM2_historical_r11i1p1f1"
+  fileroot_tas   = "tas_Amon_CESM2_historical_r11i1p1f1"
+
+  year0        = 1950
+  nt           = 1
+  fileroot_out = "AIS_NORCEPDD1_CESM2_Historical_r11i1p1f1"
+
+  ! Grid: 8 km ISMIP6 AIS (epsg:3031, 761x761)
+  nx         = 761
+  ny         = 761
+  res        = 8000.0
+  res_suffix = "i08000m"
+
+  ! AIS reference climatology: MARv3.14 monthly ERA5 1980-2009
+  filename_prref   = "Forcing/MARv3.14/pr_ref_MARv3.14-monthly-ERA5-1980-2009_08000m.nc"
+  filename_tasref  = "Forcing/MARv3.14/tas_ref_MARv3.14-monthly-ERA5-1980-2009_08000m.nc"
+  filename_defmask = "Forcing/constant/sftgif_BM3_08000m.nc"
+
+  outpathname = "./output_val1yr"
+
+  institution   = "NORCE Research"
+  contact_name  = "Heiko Goelzer"
+  contact_email = "heig@norceresearch.no"
+
+  ! PDD physics — DDFs/sigma/rainlimit identical to the original run
+  ddfactorsnow = 0.00297
+  ddfactorice  = 0.00791
+  sigma        = 4.5
+  rainlimit    = 1.0
+
+  ! Retention: max fraction of monthly snowfall retained (Janssens and
+  ! Huybrechts 2000). Tunable for the AIS calibration.
+  pmax = 0.3
+
+  ! Seasonal cycle: 0 = actual monthly temperatures (correct Southern
+  ! Hemisphere phase), 1 = parameterised cycle from annual mean + July
+  ! temperature (GrIS legacy, NH-only).
+  seasonalcycle = 0
+
+  ! Output grid: ISMIP6 AIS (epsg:3031), origin -3040000 m, 761x761 at 8 km
+  x0 = -3040000.0
+  y0 = -3040000.0
+  grid_information = "ISMIP6 grid, epsg:3031"
+/

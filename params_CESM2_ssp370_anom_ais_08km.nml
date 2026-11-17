@@ -1,5 +1,5 @@
 &config
-  ! AIS SMBMIP rerun 2026-11: CESM2 ssp370 2015-2100, 8 km, all 9 vars,
+  ! AIS SMBMIP rerun 2026-11: CESM2 ssp370 2015-2100, 8 km, all 8 vars,
   ! monthly, SMBMIP units. Reproduces the original NORCEPDD1-AIS run config
   ! with the fixed driver (mrro=total runoff, sir=retained meltwater).
   outputmode = 0
