@@ -24,7 +24,7 @@
 
   ! Reference files (fmode=1)
   filename_prref   = "Forcing/MARv3.14LC26/pr_ref_MARv3.14LC26-monthly-ERA5-1960-1989_16000m.nc"
-  filename_tasref  = "Forcing/MARv3.14-monthly-ERA5-1960-1989_16000m.nc"
+  filename_tasref  = "Forcing/MARv3.14LC26/tas_ref_MARv3.14-monthly-ERA5-1960-1989_16000m.nc"
   filename_defmask = "Forcing/constant/sftgif_promice_16000m.nc"
 
   outpathname = "./output_sc1"
