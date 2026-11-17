@@ -28,8 +28,9 @@ echo "== 1. Verify code version and namelist pairing =="
 git merge-base --is-ancestor dacfb42 HEAD || { echo "ERROR: run dir missing commit dacfb42 - update the clone first"; exit 1; }
 git log --oneline -1
 # sc0 and sc1 must differ only in seasonalcycle and outpathname
-diff <(grep -v 'seasonalcycle\|outpathname' "$NML_SC0") \
-     <(grep -v 'seasonalcycle\|outpathname' "$NML_SC1") >/dev/null \
+# (comments excluded from the comparison)
+diff <(grep -vE 'seasonalcycle|outpathname|^ *!' "$NML_SC0") \
+     <(grep -vE 'seasonalcycle|outpathname|^ *!' "$NML_SC1") >/dev/null \
      || { echo "ERROR: sc0/sc1 namelists differ beyond seasonalcycle/outpathname"; exit 1; }
 
 echo "== 2. Build serial driver =="
