@@ -331,6 +331,11 @@ program gpdd
        END DO
     END DO
           
+
+     ! Total runoff for output: meltwater runoff + rainfall (rain drains
+     ! directly, smb = pr - abl - rain unchanged) so that mrro = pr - acabf.
+     abl(:,:,:) = abl(:,:,:) + rain(:,:,:)
+
      ! Write files
      if (outputfreq == 1) then
         ! Annual mean output: average 12 months → 1 time step per year

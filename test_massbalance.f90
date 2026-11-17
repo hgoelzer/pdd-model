@@ -26,6 +26,8 @@ program test_massbalance
   call test_retained()
   call test_melt_split()
   call test_2d_3d_equivalence()
+  call test_total_runoff()
+
 
   write(*,*)
   if (nfail == 0) then
@@ -381,5 +383,52 @@ contains
     call check(err == 0.0_dp, "2D and 3D cascades identical", err, 0.0_dp)
     write(*,*)
   end subroutine test_2d_3d_equivalence
+
+  ! ── Test 10: total-runoff output convention  mrro = abl + rain ──────────────
+  ! The drivers write mrro as meltwater runoff + rainfall (rain drains
+  ! directly). The SMB closure acabf = pr - mrro then holds exactly.
+  subroutine test_total_runoff()
+    integer,  parameter :: NX=3, NY=4
+    real(dp), parameter :: ddfactorsnow = 0.00297_dp
+    real(dp), parameter :: ddfactorice  = 0.00791_dp
+    real(dp), parameter :: sigma = 4.5_dp
+    real(dp), parameter :: rainlimit = 1.0_dp
+    real(dp) :: t2m(NX,NY,12), tp(NX,NY,12)
+    real(dp) :: smb(NX,NY,12), snow(NX,NY,12), rain(NX,NY,12)
+    real(dp) :: sir(NX,NY,12), abl(NX,NY,12), pdd(NX,NY,12), rfr(NX,NY,12)
+    real(dp) :: max_err
+    integer  :: i, j, k
+    write(*,*) "Test 10: total-runoff convention  mrro = abl + rain"
+
+    ! Same mixed grid as Test 4: cold to warm across j, varying pr across i
+    do j = 1, NY
+       do i = 1, NX
+          do k = 1, 12
+             t2m(i,j,k) = (-20.0_dp + 10.0_dp*(j-1)) + 273.15_dp  ! -20 to +10°C
+             tp(i,j,k)  = 0.001_dp * i                            ! 0.001 to 0.003 m/month
+          end do
+       end do
+    end do
+    call pdd_model_greenland_total_monthly_inout( &
+         NX, NY, ddfactorsnow, ddfactorice, sigma, rainlimit, &
+         tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
+
+    ! smb = tp - (abl + rain): the driver-level identity acabf = pr - mrro
+    max_err = maxval(abs(smb - (tp - (abl + rain))))
+    call check(max_err < ATOL, "smb = tp - (abl + rain)  [acabf = pr - mrro]", &
+         max_err, 0.0_dp)
+
+    ! On the warm wet row both melt and rain contribute to total runoff
+    if (maxval(pdd(:,NY,:)) > 0.0_dp .and. minval(rain(:,NY,:)) > 0.0_dp) then
+       call checkl(all(abl(:,NY,:) > 0.0_dp), &
+            "melt runoff > 0 on warm row (mrro > rain there)", "no melt runoff")
+       call checkl(all(rain(:,NY,:) > 0.0_dp), &
+            "rain > 0 on warm row (mrro > abl there)", "no rain")
+    else
+       call checkl(.false., "warm wet row present", &
+            "test grid has no warm wet cells — extend grid")
+    end if
+    write(*,*)
+  end subroutine test_total_runoff
 
 end program test_massbalance

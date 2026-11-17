@@ -11,6 +11,13 @@
 #   - gpdd_monthly_inout.x (serial binary, built with make gpdd_monthly_inout)
 #   - CDO and Python with numpy in PATH / conda env nc
 #   - Forcing files for CESM2 historical 1950 at each resolution
+#
+# On a full queue, run interactively via the preproc QOS (from the repo dir,
+# forcing staged under ./Forcing):
+#   salloc -A nn5011k --qos=preproc --ntasks=1 --mem=4G -t 0:30:00 \
+#          bash test_regression.sh
+# Note: namelists are temporarily patched to nt=1 and outputvars=0 (full
+# output, needed for the acabf = pr - mrro closure check).
 
 set -euo pipefail
 
@@ -24,10 +31,12 @@ pass() { echo "  PASS  $1"; }
 fail() { echo "  FAIL  $1  (actual=$2, expected≈$3, tol=$4)"; NFAIL=$((NFAIL+1)); }
 
 # Compute integrated SMB from acabf NetCDF files via CDO + Python.
-# Usage: smb=$(compute_smb <outdir> <res_m>)
+# conda run does not forward stdin on the clusters, so the Python code is
+# written to a temp file first. Usage: smb=$(compute_smb <outdir> <res_m>)
 compute_smb() {
     local outdir=$1 res_m=$2
-    conda run -n nc python3 - <<EOF
+    local pyscript="/tmp/test_regression_smb_$$.py"
+    cat > "${pyscript}" <<EOF
 import glob, subprocess, numpy as np
 files = sorted(glob.glob("${outdir}/acabf_*.nc"))
 if not files:
@@ -41,6 +50,8 @@ for f in files:
     annual.append(sum(vals) * cell_area * SPM / 1e12)
 print("%.2f" % (sum(annual)/len(annual)))
 EOF
+    conda run -n nc python3 "${pyscript}" || echo "NaN"
+    rm -f "${pyscript}"
 }
 
 # Run a 1-year test at a given resolution.
@@ -63,15 +74,20 @@ run_test() {
         return
     fi
 
-    # Temporarily set nt=1 by patching a temp namelist
+    # Temporarily set nt=1 and outputvars=0 (full output) by patching a temp namelist
     local tmpnml="/tmp/test_regression_$$.nml"
-    sed 's/nt\s*=\s*[0-9]*/nt = 1/' "${REPO_DIR}/${nml}" > "${tmpnml}"
+    sed -e 's/nt\s*=\s*[0-9]*/nt = 1/' -e 's/outputvars\s*=\s*[0-9]*/outputvars = 0/' "${REPO_DIR}/${nml}" > "${tmpnml}"
     # Also redirect output to a temporary directory
     local tmpout="/tmp/test_regression_out_$$"
     mkdir -p "${tmpout}"
     sed -i "s|outpathname.*=.*|outpathname = \"${tmpout}\"|" "${tmpnml}"
 
     log "running model for 1 year..."
+    # Cluster runtime env (netCDF-Fortran lib path); no-op where `module` is absent
+    if command -v module > /dev/null 2>&1; then
+        # shellcheck disable=SC1091
+        source "${REPO_DIR}/setenv.sh"
+    fi
     (cd "${REPO_DIR}" && \
         DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}" \
         ./gpdd_monthly_inout.x "${tmpnml}" > /tmp/test_regression_run_$$.log 2>&1) || {
@@ -82,21 +98,20 @@ run_test() {
     }
 
     log "computing integrated SMB..."
-    # Inline Python to compute SMB from tmpout
     local smb
-    smb=$(conda run -n nc python3 - <<EOF 2>/dev/null || echo "NaN"
-import glob, subprocess, numpy as np
-files = sorted(glob.glob("${tmpout}/acabf_*.nc"))
-if not files:
-    print("NaN"); exit(0)
-cell_area = ${res_m} ** 2
-SPM = 30 * 86400
-annual = [sum(map(float, subprocess.run(["cdo","-s","output","-fldsum",f],
-    capture_output=True, text=True, check=True).stdout.split()))*cell_area*SPM/1e12
-    for f in files]
-print("%.2f" % (sum(annual)/len(annual)))
-EOF
-)
+    smb=$(compute_smb "${tmpout}" "${res_m}")
+
+    log "checking SMB closure acabf = pr - mrro..."
+    local closure
+    closure=$(check_closure "${tmpout}")
+    if [ "${closure}" = "ok" ]; then
+        pass "${setup}: SMB closure acabf = pr - mrro (cellwise)"
+    elif [ "${closure}" = "NaN" ]; then
+        echo "  FAIL  ${setup}: could not read output files for closure check"
+        NFAIL=$((NFAIL+1))
+    else
+        fail "${setup}: SMB closure acabf = pr - mrro" "${closure}" "max|err| <= 1e-6" "1e-6"
+    fi
 
     rm -f "${tmpnml}"; rm -rf "${tmpout}"
 
@@ -114,6 +129,29 @@ EOF
     else
         fail "${setup}: SMB check" "${smb}" "${expected}" "${tol}"
     fi
+}
+
+# Check the SMB closure acabf = pr - mrro (mrro = total runoff = melt + rain).
+# Cellwise, tolerance is float-rounding level. Usage: check_closure <outdir>
+check_closure() {
+    local outdir=$1
+    local pyscript="/tmp/test_regression_closure_$$.py"
+    cat > "${pyscript}" <<'PYEOF'
+import glob, sys
+import numpy as np
+from netCDF4 import Dataset
+d = sys.argv[1]
+def rd(pat):
+    fs = sorted(glob.glob(f"{d}/{pat}"))
+    return np.concatenate([Dataset(f).variables[pat.split("_")[0]][:] for f in fs]) if fs else None
+acabf, mrro, pr = rd("acabf_*.nc"), rd("mrro_*.nc"), rd("pr_*.nc")
+if acabf is None or mrro is None or pr is None or acabf.shape != mrro.shape:
+    print("NaN"); sys.exit(0)
+err = float(np.max(np.abs(acabf + mrro - pr)))
+print("ok" if err <= 1e-6 * max(1.0, float(np.max(np.abs(pr)))) else f"fail {err:.2e}")
+PYEOF
+    conda run -n nc python3 "${pyscript}" "${outdir}" 2>/dev/null || echo "NaN"
+    rm -f "${pyscript}"
 }
 
 # ---------- test definitions --------------------------------------------------

@@ -343,6 +343,10 @@ program gpdd_mpi
            END DO
         END DO
 
+        ! Total runoff for output: meltwater runoff + rainfall (rain drains
+        ! directly, smb = pr - abl - rain unchanged) so that mrro = pr - acabf.
+        abl_g(:,:,:) = abl_g(:,:,:) + rain_g(:,:,:)
+
         ! Write output
         if (outputmode == 0) then
            if (outputvars == 0) &
