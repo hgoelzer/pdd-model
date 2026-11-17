@@ -33,4 +33,18 @@
   ddfactorice  = 0.00791
   sigma        = 4.5
   rainlimit    = 1.0
+
+  ! Retention: max fraction of monthly snowfall retained (Janssens and
+  ! Huybrechts 2000). Tunable for the AIS calibration.
+  pmax = 0.3
+
+  ! Seasonal cycle: 0 = actual monthly temperatures (correct Southern
+  ! Hemisphere phase), 1 = parameterised cycle from annual mean + July
+  ! temperature (GrIS legacy, NH-only).
+  seasonalcycle = 0
+
+  ! Output grid: ISMIP6 AIS (epsg:3031), origin -3040000 m, 761x761 at 8 km
+  x0 = -3040000.0
+  y0 = -3040000.0
+  grid_information = "ISMIP6 grid, epsg:3031"
 /

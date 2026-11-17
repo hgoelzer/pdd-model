@@ -31,6 +31,9 @@ program gpdd_mpi
 
   integer :: nx, ny, nt
   double precision :: ddfactorsnow, ddfactorice, sigma, rainlimit
+  double precision :: pmax, x0, y0
+  integer :: seasonalcycle
+  character(len=64) :: grid_information
   integer :: nml_unit, nml_ios, narg
   integer :: i, j, t, year, year0, m, k
   integer :: ndims
@@ -93,7 +96,8 @@ program gpdd_mpi
        filename_prref, filename_tasref, filename_defmask, &
        outpathname, &
        institution, contact_name, contact_email, &
-       ddfactorsnow, ddfactorice, sigma, rainlimit
+       ddfactorsnow, ddfactorice, sigma, rainlimit, &
+       pmax, seasonalcycle, x0, y0, grid_information
 
   ! ── MPI init ──────────────────────────────────────────────────────────────
   call MPI_Init(ierr)
@@ -127,6 +131,11 @@ program gpdd_mpi
   ddfactorice   = 0.00791d0
   sigma         = 4.5d0
   rainlimit     = 1.0d0
+  pmax          = 0.3d0
+  seasonalcycle = 1
+  x0            = -720000.d0
+  y0            = -3450000.d0
+  grid_information = "ISMIP6 grid, epsg:3413"
 
   narg = command_argument_count()
   if (narg >= 1) then
@@ -159,6 +168,8 @@ program gpdd_mpi
      write(*,*) "## inpathname_pr= ", trim(inpathname_pr)
      write(*,*) "## inpathname_tas=", trim(inpathname_tas)
      write(*,*) "## outpathname=   ", trim(outpathname)
+     write(*,*) "## pmax=", pmax, "  seasonalcycle=", seasonalcycle
+     write(*,*) "## x0=", x0, "  y0=", y0, "  grid_information=", trim(grid_information)
   end if
 
   ! ── Domain decomposition ──────────────────────────────────────────────────
@@ -292,7 +303,7 @@ program gpdd_mpi
 
      ! ── Physics (all ranks, on local arrays) ────────────────────────────────
      call pdd_model_greenland_total_monthly_inout(nx, local_ny, ddfactorsnow, ddfactorice, &
-          sigma, rainlimit, pr, tas, smb, snow, rain, sir, abl, pdd, rfr)
+          sigma, rainlimit, pmax, seasonalcycle, pr, tas, smb, snow, rain, sir, abl, pdd, rfr)
 
      ! ── Gather output to rank 0 ─────────────────────────────────────────────
      call gather_3d(smb,  smb_g)
@@ -480,9 +491,9 @@ contains
     call nc_write_attr(filename, "institution",      trim(institution))
     call nc_write_attr(filename, "contact_name",     trim(contact_name))
     call nc_write_attr(filename, "contact_email",    trim(contact_email))
-    call nc_write_attr(filename, "grid_information", "ISMIP6 grid, epsg:3413")
-    call nc_write_dim(filename, "x",    x=-720000.d0, dx=res,    nx=nx,    units="m")
-    call nc_write_dim(filename, "y",    x=-3450000.d0, dx=res,   nx=ny,    units="m")
+    call nc_write_attr(filename, "grid_information", trim(grid_information))
+    call nc_write_dim(filename, "x",    x=x0, dx=res,    nx=nx,    units="m")
+    call nc_write_dim(filename, "y",    x=y0, dx=res,   nx=ny,    units="m")
     call nc_write_dim(filename, "time", x=days, dx=30.d0,        nx=12, &
          units="days since 1850-01-01 00:00:00", calendar="360_day", unlimited=.TRUE.)
     call nc_write(filename, varname, avar(:,:,:), dim1="x", dim2="y", dim3="time", &

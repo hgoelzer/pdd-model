@@ -54,6 +54,11 @@ Key settings in each `.nml` file:
   ddfactorice  = 0.00791  ! degree-day factor for ice melt  (m/yr/PDD)
   sigma        = 4.5      ! temperature variability (°C)
   rainlimit    = 1.0      ! rain/snow partitioning threshold (°C)
+  pmax         = 0.3      ! max retained meltwater fraction of monthly snowfall
+  seasonalcycle = 1       ! 1=parameterised cycle (July peak)  0=actual monthly temps
+  x0 = -720000.0           ! output grid origin (m); AIS 8 km: -3040000
+  y0 = -3450000.0          ! output grid origin (m); AIS 8 km: -3040000
+  grid_information = "ISMIP6 grid, epsg:3413"  ! AIS 8 km: epsg:3031
   ...
 /
 ```

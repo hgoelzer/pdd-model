@@ -27,6 +27,8 @@ program test_massbalance
   call test_melt_split()
   call test_2d_3d_equivalence()
   call test_total_runoff()
+  call test_seasonalcycle_equivalence()
+  call test_pmax_zero()
 
 
   write(*,*)
@@ -85,7 +87,7 @@ contains
 
     call pdd_model_greenland_total_monthly_inout( &
          NX, NY, ddfactorsnow, ddfactorice, sigma, rainlimit, &
-         tp, t2m, smba, snowa, raina, sira, abla, pdda, rfra)
+         0.3_dp, 1, tp, t2m, smba, snowa, raina, sira, abla, pdda, rfra)
 
     ! Reduce to scalars (annual mean of the 1×1 grid)
     smb  = sum(smba)  / 12.0_dp
@@ -169,7 +171,7 @@ contains
     end do
     call pdd_model_greenland_total_monthly_inout( &
          NX, NY, ddfactorsnow, ddfactorice, sigma, rainlimit, &
-         tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
+         0.3_dp, 1, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
 
     ! snow + rain = tp (exact by construction: rain=rfr*tp; snow=tp-rain)
     max_err = maxval(abs(snow + rain - tp))
@@ -278,7 +280,7 @@ contains
     end do
     call pdd_model_greenland_total_monthly_inout( &
          NX, NY, ddfactorsnow, ddfactorice, sigma, rainlimit, &
-         tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
+         0.3_dp, 1, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
 
     ! Recompute ablv and sifm independently from the model's snow/pdd
     e1 = 0.0_dp
@@ -411,7 +413,7 @@ contains
     end do
     call pdd_model_greenland_total_monthly_inout( &
          NX, NY, ddfactorsnow, ddfactorice, sigma, rainlimit, &
-         tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
+         0.3_dp, 1, tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
 
     ! smb = tp - (abl + rain): the driver-level identity acabf = pr - mrro
     max_err = maxval(abs(smb - (tp - (abl + rain))))
@@ -430,5 +432,92 @@ contains
     end if
     write(*,*)
   end subroutine test_total_runoff
+
+  ! ── Test 11: seasonalcycle=0 (actual monthly temps) ≡ taj for a cosine ──────
+  ! taj reconstructs the annual cycle from the annual mean and the July
+  ! temperature. For a sinusoid peaking in July the reconstruction is exact,
+  ! so both seasonal-cycle branches must agree to round-off.
+  subroutine test_seasonalcycle_equivalence()
+    integer,  parameter :: NX=2, NY=3
+    real(dp), parameter :: ddfactorsnow = 0.00297_dp
+    real(dp), parameter :: ddfactorice  = 0.00791_dp
+    real(dp), parameter :: sigma = 4.5_dp
+    real(dp), parameter :: rainlimit = 1.0_dp
+    real(dp), parameter :: PMAX = 0.3_dp
+    real(dp) :: t2m(NX,NY,12), tp(NX,NY,12)
+    real(dp) :: smb1(NX,NY,12), snow1(NX,NY,12), rain1(NX,NY,12)
+    real(dp) :: sir1(NX,NY,12), abl1(NX,NY,12), pdd1(NX,NY,12), rfr1(NX,NY,12)
+    real(dp) :: smb0(NX,NY,12), snow0(NX,NY,12), rain0(NX,NY,12)
+    real(dp) :: sir0(NX,NY,12), abl0(NX,NY,12), pdd0(NX,NY,12), rfr0(NX,NY,12)
+    real(dp) :: err
+    integer  :: i, j, k
+    write(*,*) "Test 11: seasonalcycle=0 (actual temps) = taj for July-peak cosine"
+
+    ! NH cosine climatology peaking in July: T = Tmean + ampl*cos(2pi(k-7)/12)
+    do j = 1, NY
+       do i = 1, NX
+          do k = 1, 12
+             t2m(i,j,k) = (-5.0_dp + 2.0_dp*(j-1) + 8.0_dp* &
+                  cos(2.0_dp*3.141592653589793_dp*dble(k-7)/12.0_dp)) + 273.15_dp
+             tp(i,j,k)  = 0.002_dp * (i + j)
+          end do
+       end do
+    end do
+    call pdd_model_greenland_total_monthly_inout( &
+         NX, NY, ddfactorsnow, ddfactorice, sigma, rainlimit, &
+         PMAX, 1, tp, t2m, smb1, snow1, rain1, sir1, abl1, pdd1, rfr1)
+    call pdd_model_greenland_total_monthly_inout( &
+         NX, NY, ddfactorsnow, ddfactorice, sigma, rainlimit, &
+         PMAX, 0, tp, t2m, smb0, snow0, rain0, sir0, abl0, pdd0, rfr0)
+
+    err = 0.0_dp
+    do k = 1, 12
+       err = max(err, maxval(abs(pdd1(:,:,k) - pdd0(:,:,k))), &
+                       maxval(abs(rfr1(:,:,k) - rfr0(:,:,k))), &
+                       maxval(abs(smb1(:,:,k) - smb0(:,:,k))))
+    end do
+    call check(err < 1.0e-8_dp, "seasonalcycle 0 vs 1 identical for July-peak cosine", &
+         err, 0.0_dp)
+    write(*,*)
+  end subroutine test_seasonalcycle_equivalence
+
+  ! ── Test 12: pmax=0 disables retention ──────────────────────────────────────
+  ! With pmax=0 no meltwater is retained (sir=0 exactly) and melt runoff is
+  ! at least as large as with pmax=0.3.
+  subroutine test_pmax_zero()
+    integer,  parameter :: NX=2, NY=3
+    real(dp), parameter :: ddfactorsnow = 0.00297_dp
+    real(dp), parameter :: ddfactorice  = 0.00791_dp
+    real(dp), parameter :: sigma = 4.5_dp
+    real(dp), parameter :: rainlimit = 1.0_dp
+    real(dp) :: t2m(NX,NY,12), tp(NX,NY,12)
+    real(dp) :: smb1(NX,NY,12), snow1(NX,NY,12), rain1(NX,NY,12)
+    real(dp) :: sir1(NX,NY,12), abl1(NX,NY,12), pdd1(NX,NY,12), rfr1(NX,NY,12)
+    real(dp) :: smb0(NX,NY,12), snow0(NX,NY,12), rain0(NX,NY,12)
+    real(dp) :: sir0(NX,NY,12), abl0(NX,NY,12), pdd0(NX,NY,12), rfr0(NX,NY,12)
+    integer  :: i, j, k
+    write(*,*) "Test 12: pmax=0 disables retention (sir=0, runoff >= pmax=0.3 case)"
+
+    do j = 1, NY
+       do i = 1, NX
+          do k = 1, 12
+             t2m(i,j,k) = (-10.0_dp + 8.0_dp*(j-1)) + 273.15_dp  ! -10 to +6 C
+             tp(i,j,k)  = 0.002_dp * i
+          end do
+       end do
+    end do
+    call pdd_model_greenland_total_monthly_inout( &
+         NX, NY, ddfactorsnow, ddfactorice, sigma, rainlimit, &
+         0.3_dp, 1, tp, t2m, smb1, snow1, rain1, sir1, abl1, pdd1, rfr1)
+    call pdd_model_greenland_total_monthly_inout( &
+         NX, NY, ddfactorsnow, ddfactorice, sigma, rainlimit, &
+         0.0_dp, 1, tp, t2m, smb0, snow0, rain0, sir0, abl0, pdd0, rfr0)
+
+    call check(maxval(abs(sir0)) == 0.0_dp, "pmax=0 gives sir=0 exactly", &
+         maxval(abs(sir0)), 0.0_dp)
+    call checkl(all(abl0 >= abl1 - 1.0e-12_dp), &
+         "pmax=0 melt runoff >= pmax=0.3 melt runoff", "runoff decreased with pmax=0")
+    write(*,*)
+  end subroutine test_pmax_zero
 
 end program test_massbalance

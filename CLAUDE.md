@@ -71,6 +71,9 @@ The active driver is `gpdd_monthly_inout.x`. To switch scenarios pass a differen
 - `ddfactorsnow`, `ddfactorice` — degree-day factors for snow and ice melt (m/yr/PDD); defaults 0.00297 and 0.00791
 - `sigma` — temperature variability for PDD calculation (°C); default 4.5
 - `rainlimit` — temperature threshold for rain/snow partitioning (°C); default 1.0
+- `pmax` — max retained meltwater as fraction of the current month's snowfall (Janssens and Huybrechts 2000); default 0.3 (was hardcoded)
+- `seasonalcycle` — 1 = parameterised seasonal cycle from annual mean + July temperature (default; GrIS legacy, NH July peak); 0 = actual monthly temperatures (correct phase in both hemispheres; use for AIS)
+- `x0`, `y0`, `grid_information` — output grid origin (m) and `grid_information` NetCDF attribute; GrIS defaults −720000/−3450000 and "ISMIP6 grid, epsg:3413"; AIS 8 km uses −3040000/−3040000 and "ISMIP6 grid, epsg:3031"
 - `time_ref_year` — reference year for output time coordinate (integer); default 1850. Set to 0 for TIPMIP schematic experiments with year-0-based time axis. Output `units` string becomes `"days since YYYY-01-01 00:00:00"`; fully backward compatible (omitting from namelist keeps 1850).
 - `deflate_level` — zlib compression level for output NetCDF4 files (0 = off, 1–9); default 5 (~3× compression at 16 km, ~4–6× at 1 km due to large off-ice zero regions)
 

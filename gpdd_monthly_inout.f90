@@ -24,6 +24,9 @@ program gpdd
   integer :: nx, ny, nt
   integer :: time_ref_year
   double precision :: ddfactorsnow, ddfactorice, sigma, rainlimit
+  double precision :: pmax, x0, y0
+  integer :: seasonalcycle
+  character(len=64) :: grid_information
   integer :: nml_unit, nml_ios, narg
   integer :: i, j, t, year, year0, m, k
   integer :: ndims
@@ -78,7 +81,8 @@ program gpdd
        filename_prref, filename_tasref, filename_defmask, &
        outpathname, &
        institution, contact_name, contact_email, &
-       ddfactorsnow, ddfactorice, sigma, rainlimit
+       ddfactorsnow, ddfactorice, sigma, rainlimit, &
+       pmax, seasonalcycle, x0, y0, grid_information
 
   ! Default configuration (overridden by namelist file)
   outputmode     = 0
@@ -108,6 +112,11 @@ program gpdd
   ddfactorice   = 0.00791d0
   sigma         = 4.5d0
   rainlimit     = 1.0d0
+  pmax          = 0.3d0
+  seasonalcycle = 1
+  x0            = -720000.d0
+  y0            = -3450000.d0
+  grid_information = "ISMIP6 grid, epsg:3413"
   time_ref_year = 1850
 
   ! Read namelist file: use first CLI argument, else default "params.nml"
@@ -143,6 +152,8 @@ program gpdd
   write(*,*) "## fileroot_out=  ", trim(fileroot_out)
   write(*,*) "## outpathname=   ", trim(outpathname)
   write(*,*) "## institution=   ", trim(institution)
+  write(*,*) "## pmax=", pmax, "  seasonalcycle=", seasonalcycle
+  write(*,*) "## x0=", x0, "  y0=", y0, "  grid_information=", trim(grid_information)
 
   ! #########################################################################
   
@@ -289,7 +300,7 @@ program gpdd
      pr(:,:,:) = pr(:,:,:)*31556926/rhoi/12.
 
      ! Model call
-     call pdd_model_greenland_total_monthly_inout(nx, ny, ddfactorsnow, ddfactorice, sigma, rainlimit, pr, tas, smb, snow, rain, sir, abl, pdd, rfr)
+     call pdd_model_greenland_total_monthly_inout(nx, ny, ddfactorsnow, ddfactorice, sigma, rainlimit, pmax, seasonalcycle, pr, tas, smb, snow, rain, sir, abl, pdd, rfr)
 
      ! Convert for output depending on outputmode
      if (outputmode == 0) then
@@ -551,11 +562,11 @@ contains
     call nc_write_attr(filename,"institution", trim(institution))
     call nc_write_attr(filename,"contact_name", trim(contact_name))
     call nc_write_attr(filename,"contact_email", trim(contact_email))
-    call nc_write_attr(filename,"grid_information", "ISMIP6 grid, epsg:3413")
+    call nc_write_attr(filename,"grid_information", trim(grid_information))
 
     ! Write the dimensions (x, y, time), defined inline
-    call nc_write_dim(filename,"x",x=-720000.d0,dx=res,nx=nx,units="m")
-    call nc_write_dim(filename,"y",x=-3450000.d0,dx=res,nx=ny,units="m")
+    call nc_write_dim(filename,"x",x=x0,dx=res,nx=nx,units="m")
+    call nc_write_dim(filename,"y",x=y0,dx=res,nx=ny,units="m")
     call nc_write_dim(filename,"time",x=days,dx=30.d0,nx=12, &
          units=trim(time_units),calendar="360_day", unlimited=.TRUE.)
 
@@ -598,11 +609,11 @@ contains
     call nc_write_attr(filename, "institution",       trim(institution))
     call nc_write_attr(filename, "contact_name",      trim(contact_name))
     call nc_write_attr(filename, "contact_email",     trim(contact_email))
-    call nc_write_attr(filename, "grid_information",  "ISMIP6 grid, epsg:3413")
+    call nc_write_attr(filename, "grid_information",  trim(grid_information))
     call nc_write_attr(filename, "output_frequency",  "annual")
 
-    call nc_write_dim(filename, "x", x=-720000.d0,   dx=res, nx=size(avar,1), units="m")
-    call nc_write_dim(filename, "y", x=-3450000.d0,  dx=res, nx=size(avar,2), units="m")
+    call nc_write_dim(filename, "x", x=x0,   dx=res, nx=size(avar,1), units="m")
+    call nc_write_dim(filename, "y", x=y0,  dx=res, nx=size(avar,2), units="m")
     call nc_write_dim(filename, "time", x=days, dx=360.d0, nx=1, &
          units=trim(time_units), calendar="360_day", unlimited=.TRUE.)
 
