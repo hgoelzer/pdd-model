@@ -14,7 +14,7 @@
 #
 # On a full queue, run interactively via the preproc QOS (from the repo dir,
 # forcing staged under ./Forcing):
-#   salloc -A nn5011k --qos=preproc --ntasks=1 --mem=4G -t 0:30:00 \
+#   salloc -A nn8002k --qos=preproc --ntasks=1 --mem=4G -t 0:30:00 \
 #          bash test_regression.sh
 # Note: namelists are temporarily patched to nt=1 and outputvars=0 (full
 # output, needed for the acabf = pr - mrro closure check).

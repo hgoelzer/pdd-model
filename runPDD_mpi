@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=gpdd_mpi
-# Accounts: CLIM2Ant: nn11016k, ISMIP7: nn5011k, GREASE: nn8006k
-#SBATCH --account=nn5011k
+# Accounts: Betzy ISMIP7 runs: nn8002k (from 2026-11); CLIM2Ant: nn11016k, GREASE: nn8006k
+#SBATCH --account=nn8002k
 #SBATCH --nodes=4
 #SBATCH --ntasks-per-node=128
 #SBATCH --time=01:00:00
