@@ -14,10 +14,11 @@
 #   1. File counts: 9 vars x 65 yr (hist) + 9 vars x 86 yr (ssp370)
 #   2. Cellwise SMB closure acabf = pr - mrro for every year
 #   3. Grid metadata: epsg:3031, origin -3040000
-#   4. Ground-truth archive comparison (NIRD mount): pr/prsn/prra must match
-#      the original taj-era archive field-wise for 1950 and 2014 (these are
-#      parameter- and cycle-independent). acabf/mrro/pdd/rfr/snicefreez are
-#      EXPECTED to differ (sc=0 vs taj; mrro/sir conventions).
+#   4. Ground-truth archive comparison: pr/prsn/prra must match the original
+#      taj-era archive field-wise for 1950/2014 (hist) and 2015/2100 (ssp370)
+#      (these are parameter- and cycle-independent). Comparison files are
+#      STAGED to /cluster/work/users/heig/pdd/ais_08/archive_cmp/ because the
+#      NS8002K NIRD mount is NOT available on compute nodes.
 # Usage: sbatch ais_verify_job.sh
 
 set -o errexit
@@ -36,7 +37,7 @@ AREA = 761 * 761 * 64e6
 SEC = 31556926.0
 ROOTS = [("Historical", "AIS_NORCEPDD1_CESM2_Historical_r11i1p1f1", 1950, 2014),
          ("SSP370", "AIS_NORCEPDD1_CESM2_SSP370_r11i1p1f1", 2015, 2100)]
-ARCH = "/nird/datalake/NS8002K/heig/PDD-AIS/Output/ais_08/output_08000m"
+ARCH = "/cluster/work/users/heig/pdd/ais_08/archive_cmp"
 VARS9 = ["acabf", "mrro", "pdd", "pr", "prra", "prsn", "rfr", "snicefreez", "tas"]
 # parameter- and cycle-independent: must match the taj archive
 MATCH_VARS = ["pr", "prsn", "prra"]
