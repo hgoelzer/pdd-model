@@ -26,7 +26,7 @@ bash test_regression.sh
 
 echo "== 4. Field-level bit-compat vs pre-change baseline (regtest/out16, out04) =="
 # Re-run both tests keeping the output, then compare acabf/mrro fields.
-for res in 16km 4km; do
+for res in 16km 04km; do
     nml=params_CESM2_historical_anom_${res}.nml
     resm=$( [ "$res" = "16km" ] && echo 16000 || echo 4000 )
     tmpnml=/tmp/reg_field_${res}_$$.nml
