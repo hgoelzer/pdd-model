@@ -71,6 +71,7 @@ The active driver is `gpdd_monthly_inout.x`. To switch scenarios pass a differen
 - `ddfactorsnow`, `ddfactorice` — degree-day factors for snow and ice melt (m/yr/PDD); defaults 0.00297 and 0.00791
 - `sigma` — temperature variability for PDD calculation (°C); default 4.5
 - `rainlimit` — temperature threshold for rain/snow partitioning (°C); default 1.0
+- `time_ref_year` — reference year for output time coordinate (integer); default 1850. Set to 0 for TIPMIP schematic experiments with year-0-based time axis. Output `units` string becomes `"days since YYYY-01-01 00:00:00"`; fully backward compatible (omitting from namelist keeps 1850).
 - `deflate_level` — zlib compression level for output NetCDF4 files (0 = off, 1–9); default 5 (~3× compression at 16 km, ~4–6× at 1 km due to large off-ice zero regions)
 
 **Forcing files** live under `./Forcing/` (mirrored from cluster). The `output/` directory must exist before running.

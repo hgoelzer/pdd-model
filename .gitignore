@@ -10,3 +10,4 @@ diag/*.pdf
 diag/*.png
 
 CLAUDE.md
+.DS_Store
