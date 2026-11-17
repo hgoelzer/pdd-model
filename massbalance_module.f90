@@ -626,23 +626,17 @@ CONTAINS
       DO i = 1, nx
         pdds = snow(i,j) / ddfactorsnow
         sifm = pmax * snow(i,j)
-        IF (sifm > tpa(i,j)) sifm = tpa(i,j)
         IF (pdds <= pdd(i,j)) THEN
           ablv = (pdd(i,j) - pdds) * ddfactorice + snow(i,j)
         ELSE
           ablv = pdd(i,j) * ddfactorsnow
         END IF
-        IF (ablv > tpa(i,j) + sifm) THEN
-          sir(i,j) = 0.
-        ELSE IF (ablv > tpa(i,j)) THEN
-          sir(i,j) = tpa(i,j) + sifm - ablv
-        ELSE IF (ablv > sifm) THEN
-          sir(i,j) = sifm
-        ELSE
-          sir(i,j) = ablv
-        END IF
+        ! Runoff = potential melt minus fixed-fraction retention allowance;
+        ! sir is the actually retained meltwater min(ablv, sifm) — diagnostic
+        ! only, not an SMB closure term (acabf = pr - mrro - prra).
         abl(i,j) = ablv - sifm
         IF (abl(i,j) < 0.) abl(i,j) = 0.
+        sir(i,j) = ablv - abl(i,j)
       END DO
     END DO
   END SUBROUTINE melt_cascade_2d
@@ -660,23 +654,17 @@ CONTAINS
         DO k = 1, 12
           pdds = snow(i,j,k) / ddfactorsnow
           sifm = pmax * snow(i,j,k)
-          IF (sifm > tp(i,j,k)) sifm = tp(i,j,k)
           IF (pdds <= pdd(i,j,k)) THEN
             ablv = (pdd(i,j,k) - pdds) * ddfactorice + snow(i,j,k)
           ELSE
             ablv = pdd(i,j,k) * ddfactorsnow
           END IF
-          IF (ablv > tp(i,j,k) + sifm) THEN
-            sir(i,j,k) = 0.
-          ELSE IF (ablv > tp(i,j,k)) THEN
-            sir(i,j,k) = tp(i,j,k) + sifm - ablv
-          ELSE IF (ablv > sifm) THEN
-            sir(i,j,k) = sifm
-          ELSE
-            sir(i,j,k) = ablv
-          END IF
+          ! Runoff = potential melt minus fixed-fraction retention allowance;
+          ! sir is the actually retained meltwater min(ablv, sifm) — diagnostic
+          ! only, not an SMB closure term (acabf = pr - mrro - prra).
           abl(i,j,k) = ablv - sifm
           IF (abl(i,j,k) < 0.) abl(i,j,k) = 0.
+          sir(i,j,k) = ablv - abl(i,j,k)
         END DO
       END DO
     END DO

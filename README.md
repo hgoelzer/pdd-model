@@ -72,6 +72,13 @@ If no argument is given, `params.nml` in the working directory is used. Pass a d
 
 Output is written to `output/` — one NetCDF file per variable per year (tas, acabf, pr, mrro, prra, prsn, snicefreez, pdd, rfr).
 
+## Output conventions (verified)
+
+- `acabf = pr - mrro - prra` holds exactly: surface mass balance = precipitation minus total runoff (meltwater runoff + rain, which drains directly).
+- `snicefreez` is the meltwater actually retained by the fixed-fraction scheme: `sir = ablv - abl = min(ablv, pmax*snow)` with `pmax = 0.3` (Janssens and Huybrechts 2000). It is a diagnostic only — **not** an SMB closure term: `pr - mrro - snicefreez` is not a valid closure, because retained water is already excluded from `mrro`.
+- `sir + abl = ablv`: potential melt splits into retained water and runoff. The 2D and 3D cascade routines use identical cellwise equations.
+- Provenance: outputs archived before 2026-11 used a legacy `sir` definition (potential-refreezing diagnostic) that did not equal the retained amount; do not mix pre- and post-fix `snicefreez` fields in analyses.
+
 ## Diagnostics
 
 Basin-integrated scalars and mass change diagnostics are in `diag/`:

@@ -23,6 +23,9 @@ program test_massbalance
   call test_conservation()
   call test_bounds()
   call test_rainlimit_boundary()
+  call test_retained()
+  call test_melt_split()
+  call test_2d_3d_equivalence()
 
   write(*,*)
   if (nfail == 0) then
@@ -196,14 +199,42 @@ contains
 
   ! ── Test 5: Explicit bound checks ───────────────────────────────────────────
   subroutine test_bounds()
-    real(dp) :: smb, snow, rain, sir, abl, pdd, rfr
-    real(dp), parameter :: PR = 0.01_dp
+    integer,  parameter :: NX=2, NY=2
+    real(dp), parameter :: ddfactorsnow = 0.00297_dp
+    real(dp), parameter :: ddfactorice  = 0.00791_dp
     real(dp), parameter :: PMAX = 0.3_dp
-    write(*,*) "Test 5: refreezing cap  (sir <= pmax * snow)"
-    ! Mildly cold: some snow, some melt, test sir cap
-    call call_model(-2.0_dp, PR, smb, snow, rain, sir, abl, pdd, rfr)
-    call check(sir <= PMAX * snow + ATOL, "sir <= pmax * snow", sir, PMAX*snow)
-    call check(sir >= 0.0_dp - ATOL,     "sir >= 0",           sir, 0.0_dp)
+    real(dp) :: snow(NX,NY,12), pdd(NX,NY,12), tp(NX,NY,12)
+    real(dp) :: sir(NX,NY,12), abl(NX,NY,12)
+    real(dp) :: pdds, ablv, sifm, err
+    integer  :: i, j, k
+    write(*,*) "Test 5: refreezing cap  (sir <= min(pmax * snow, ablv))"
+    ! Mixed regimes: full melt, marginal melt, tiny melt, no melt
+    snow = 0.004_dp
+    tp   = 1.0_dp
+    pdd  = 0.0_dp
+    pdd(1,1,:) = 5.0_dp      ! melt-dominated: ablv > sifm
+    pdd(2,1,:) = 0.5_dp      ! marginal melt
+    pdd(1,2,:) = 0.0001_dp   ! tiny melt: ablv < sifm
+                             ! (2,2) stays cold: ablv = 0
+    call melt_cascade_3d(NX, NY, ddfactorsnow, ddfactorice, PMAX, &
+         snow, pdd, tp, sir, abl)
+    err = 0.0_dp
+    do k = 1, 12
+       do j = 1, NY
+          do i = 1, NX
+             pdds = snow(i,j,k) / ddfactorsnow
+             sifm = PMAX * snow(i,j,k)
+             if (pdds <= pdd(i,j,k)) then
+                ablv = (pdd(i,j,k) - pdds) * ddfactorice + snow(i,j,k)
+             else
+                ablv = pdd(i,j,k) * ddfactorsnow
+             end if
+             err = max(err, abs(sir(i,j,k) - min(ablv, sifm)), &
+                            abs(abl(i,j,k) - max(ablv - sifm, 0.0_dp)))
+          end do
+       end do
+    end do
+    call check(err < ATOL, "sir = min(ablv,sifm); abl = max(ablv-sifm,0)", err, 0.0_dp)
     write(*,*)
   end subroutine test_bounds
 
@@ -218,5 +249,137 @@ contains
     call check(abs(rfr - 0.5_dp) < 0.1_dp, "rfr ≈ 0.5 at T=rainlimit", rfr, 0.5_dp)
     write(*,*)
   end subroutine test_rainlimit_boundary
+
+  ! ── Test 7: retained-amount identity  sir = ablv - abl ──────────────────────
+  subroutine test_retained()
+    integer,  parameter :: NX=4, NY=3
+    real(dp), parameter :: ddfactorsnow = 0.00297_dp
+    real(dp), parameter :: ddfactorice  = 0.00791_dp
+    real(dp), parameter :: sigma = 4.5_dp
+    real(dp), parameter :: rainlimit = 1.0_dp
+    real(dp), parameter :: PMAX = 0.3_dp
+    real(dp) :: t2m(NX,NY,12), tp(NX,NY,12)
+    real(dp) :: smb(NX,NY,12), snow(NX,NY,12), rain(NX,NY,12)
+    real(dp) :: sir(NX,NY,12), abl(NX,NY,12), pdd(NX,NY,12), rfr(NX,NY,12)
+    real(dp) :: pdds, ablv, sifm, e1, e2
+    integer  :: i, j, k
+    write(*,*) "Test 7: retained amount  sir = ablv - abl = min(ablv, pmax*snow)"
+
+    ! Varied grid: cold to warm across j, dry to wet across i
+    do j = 1, NY
+       do i = 1, NX
+          do k = 1, 12
+             t2m(i,j,k) = (-15.0_dp + 12.0_dp*(j-1)) + 273.15_dp
+             tp(i,j,k)  = 0.001_dp * (i + j)
+          end do
+       end do
+    end do
+    call pdd_model_greenland_total_monthly_inout( &
+         NX, NY, ddfactorsnow, ddfactorice, sigma, rainlimit, &
+         tp, t2m, smb, snow, rain, sir, abl, pdd, rfr)
+
+    ! Recompute ablv and sifm independently from the model's snow/pdd
+    e1 = 0.0_dp
+    e2 = 0.0_dp
+    do k = 1, 12
+       do j = 1, NY
+          do i = 1, NX
+             pdds = snow(i,j,k) / ddfactorsnow
+             sifm = PMAX * snow(i,j,k)
+             if (pdds <= pdd(i,j,k)) then
+                ablv = (pdd(i,j,k) - pdds) * ddfactorice + snow(i,j,k)
+             else
+                ablv = pdd(i,j,k) * ddfactorsnow
+             end if
+             e1 = max(e1, abs(sir(i,j,k) - (ablv - abl(i,j,k))))
+             e2 = max(e2, abs(sir(i,j,k) - min(ablv, sifm)))
+          end do
+       end do
+    end do
+    call check(e1 < ATOL, "sir = ablv - abl (all cells)", e1, 0.0_dp)
+    call check(e2 < ATOL, "sir = min(ablv, pmax*snow) (all cells)", e2, 0.0_dp)
+    write(*,*)
+  end subroutine test_retained
+
+  ! ── Test 8: melt split  sir + abl = ablv  (pdd > 0) ─────────────────────────
+  subroutine test_melt_split()
+    integer,  parameter :: NX=3, NY=2
+    real(dp), parameter :: ddfactorsnow = 0.00297_dp
+    real(dp), parameter :: ddfactorice  = 0.00791_dp
+    real(dp), parameter :: PMAX = 0.3_dp
+    real(dp) :: snow(NX,NY,12), pdd(NX,NY,12), tp(NX,NY,12)
+    real(dp) :: sir(NX,NY,12), abl(NX,NY,12)
+    real(dp) :: pdds, ablv, err
+    integer  :: i, j, k
+    write(*,*) "Test 8: melt split  sir + abl = ablv  (pdd > 0)"
+
+    ! pdd spans the pdds threshold so both ablv branches are exercised
+    do k = 1, 12
+       do j = 1, NY
+          do i = 1, NX
+             snow(i,j,k) = 0.002_dp * (i + 0.5_dp*j)
+             pdd(i,j,k)  = 0.5_dp * (i*j) + 0.1_dp*k
+             tp(i,j,k)   = 10.0_dp * snow(i,j,k)
+          end do
+       end do
+    end do
+    call melt_cascade_3d(NX, NY, ddfactorsnow, ddfactorice, PMAX, &
+         snow, pdd, tp, sir, abl)
+    err = 0.0_dp
+    do k = 1, 12
+       do j = 1, NY
+          do i = 1, NX
+             if (pdd(i,j,k) > 0.0_dp) then
+                pdds = snow(i,j,k) / ddfactorsnow
+                if (pdds <= pdd(i,j,k)) then
+                   ablv = (pdd(i,j,k) - pdds) * ddfactorice + snow(i,j,k)
+                else
+                   ablv = pdd(i,j,k) * ddfactorsnow
+                end if
+                err = max(err, abs(sir(i,j,k) + abl(i,j,k) - ablv))
+             end if
+          end do
+       end do
+    end do
+    call check(err < ATOL, "sir + abl = ablv where pdd > 0", err, 0.0_dp)
+    write(*,*)
+  end subroutine test_melt_split
+
+  ! ── Test 9: 2D/3D cascade equivalence ───────────────────────────────────────
+  subroutine test_2d_3d_equivalence()
+    integer,  parameter :: NX=3, NY=2
+    real(dp), parameter :: ddfactorsnow = 0.00297_dp
+    real(dp), parameter :: ddfactorice  = 0.00791_dp
+    real(dp), parameter :: PMAX = 0.3_dp
+    real(dp) :: snow2d(NX,NY), pdd2d(NX,NY), tpa(NX,NY)
+    real(dp) :: sir2d(NX,NY), abl2d(NX,NY)
+    real(dp) :: snow3d(NX,NY,12), pdd3d(NX,NY,12), tp3d(NX,NY,12)
+    real(dp) :: sir3d(NX,NY,12), abl3d(NX,NY,12)
+    real(dp) :: err
+    integer  :: k
+    write(*,*) "Test 9: 2D/3D cascade equivalence (same cellwise equations)"
+
+    do k = 1, NY
+       snow2d(:,k) = 0.001_dp * (1 + k)
+       pdd2d(:,k)  = 0.5_dp * (1 + k)   ! spans pdds threshold
+       tpa(:,k)    = 12.0_dp * snow2d(:,k)
+    end do
+    do k = 1, 12
+       snow3d(:,:,k) = snow2d
+       pdd3d(:,:,k)  = pdd2d
+       tp3d(:,:,k)   = tpa
+    end do
+    call melt_cascade_2d(NX, NY, ddfactorsnow, ddfactorice, PMAX, &
+         snow2d, pdd2d, tpa, sir2d, abl2d)
+    call melt_cascade_3d(NX, NY, ddfactorsnow, ddfactorice, PMAX, &
+         snow3d, pdd3d, tp3d, sir3d, abl3d)
+    err = 0.0_dp
+    do k = 1, 12
+       err = max(err, maxval(abs(sir3d(:,:,k) - sir2d)), &
+                       maxval(abs(abl3d(:,:,k) - abl2d)))
+    end do
+    call check(err == 0.0_dp, "2D and 3D cascades identical", err, 0.0_dp)
+    write(*,*)
+  end subroutine test_2d_3d_equivalence
 
 end program test_massbalance

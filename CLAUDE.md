@@ -99,9 +99,11 @@ All subroutines use `(nx, ny, ...)` array ordering. PDD lookup tables (`taberf`,
 
 **Key physics parameters** — all passed as `INTENT(IN)` arguments; set via namelist:
 - `ddfactorsnow`, `ddfactorice`, `sigma`, `rainlimit` — exposed to all `pdd_model_*` and `calculate_pdd_*` subroutines; defaults in `gpdd_monthly_inout.f90` are 0.00297, 0.00791, 4.5, 1.0
-- `pmax = 0.3` (refreezing cap) — still a `PARAMETER` constant in each `pdd_model_*` subroutine, not yet exposed
+- `pmax = 0.3` (fixed-fraction retention allowance, Janssens and Huybrechts 2000) — still a `PARAMETER` constant in each `pdd_model_*` subroutine, not yet exposed
 
 **Private helpers** (`init_pdd_lut`, `melt_cascade_2d`, `melt_cascade_3d`) — the snow/ice melt + refreezing cascade is extracted into these subroutines to eliminate duplication.
+
+**Output semantics (fixed 2026-11)** — in the melt cascade, `sifm = pmax*snow` (retention allowance; the old `sifm > tp` clamp was unreachable dead code and was removed), `abl = max(ablv - sifm, 0)` is runoff, and `sir = ablv - abl = min(ablv, sifm)` is the meltwater actually retained — a diagnostic only, **not** an SMB closure term. Hence `smb = tp - abl - rain` and `acabf = pr - mrro - prra` hold exactly, while `pr - mrro - snicefreez` is not a valid closure. `melt_cascade_2d` and `melt_cascade_3d` are cellwise identical; the 3D third dimension is month. Archived `snicefreez` fields produced before 2026-11 used a legacy potential-refreezing definition (`sir` piecewise rule) that did not equal the retained amount — do not mix pre- and post-fix fields in analyses.
 
 **`gpdd_monthly_inout.f90`** — active driver. Year loop reads one forcing file per year, calls `pdd_model_greenland_total_monthly_inout`, applies the ice mask, converts units, and writes one NetCDF file per variable per year via the `write_nc_file` contained subroutine. Output is on the ISMIP6 Greenland grid (epsg:3413, origin x=−720000, y=−3450000 m).
 

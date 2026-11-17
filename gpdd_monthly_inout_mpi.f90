@@ -356,7 +356,7 @@ program gpdd_mpi
               call write_nc_file(abl_g,  res, year, outpathname, fileroot_out, "mrro", "kg m-2 s-1", "runoff_flux", institution, contact_name, contact_email)
               call write_nc_file(rain_g, res, year, outpathname, fileroot_out, "prra", "kg m-2 s-1", "rainfall_flux", institution, contact_name, contact_email)
               call write_nc_file(snow_g, res, year, outpathname, fileroot_out, "prsn", "kg m-2 s-1", "snowfall_flux", institution, contact_name, contact_email)
-              call write_nc_file(sir_g,  res, year, outpathname, fileroot_out, "snicefreez", "kg m-2 s-1", "surface_snow_and_ice_refreezing_flux", institution, contact_name, contact_email)
+              call write_nc_file(sir_g,  res, year, outpathname, fileroot_out, "snicefreez", "kg m-2 s-1", "retained meltwater, fixed-fraction PMAX scheme (diagnostic; not an SMB closure term)", institution, contact_name, contact_email)
            end if
         else if (outputmode == 1) then
            if (outputvars == 0) &
@@ -370,7 +370,7 @@ program gpdd_mpi
               call write_nc_file(abl_g,  res, year, outpathname, fileroot_out, "mrro", "kg m-2 yr-1", "runoff_flux", institution, contact_name, contact_email)
               call write_nc_file(rain_g, res, year, outpathname, fileroot_out, "prra", "kg m-2 yr-1", "rainfall_flux", institution, contact_name, contact_email)
               call write_nc_file(snow_g, res, year, outpathname, fileroot_out, "prsn", "kg m-2 yr-1", "snowfall_flux", institution, contact_name, contact_email)
-              call write_nc_file(sir_g,  res, year, outpathname, fileroot_out, "snicefreez", "kg m-2 yr-1", "surface_snow_and_ice_refreezing_flux", institution, contact_name, contact_email)
+              call write_nc_file(sir_g,  res, year, outpathname, fileroot_out, "snicefreez", "kg m-2 yr-1", "retained meltwater, fixed-fraction PMAX scheme (diagnostic; not an SMB closure term)", institution, contact_name, contact_email)
            end if
         end if
         if (outputvars == 0) then

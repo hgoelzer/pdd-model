@@ -367,7 +367,7 @@ program gpdd
                 fileroot_out, "prsn", "kg m-2 s-1", "snowfall_flux", &
                 institution, contact_name, contact_email)
            call write_nc_file_annual(sir_ann, res, year, outpathname, &
-                fileroot_out, "snicefreez", "kg m-2 s-1", "surface_snow_and_ice_refreezing_flux", &
+                fileroot_out, "snicefreez", "kg m-2 s-1", "retained meltwater, fixed-fraction PMAX scheme (diagnostic; not an SMB closure term)", &
                 institution, contact_name, contact_email)
            end if
         else if (outputmode == 1) then
@@ -392,7 +392,7 @@ program gpdd
                 fileroot_out, "prsn", "kg m-2 yr-1", "snowfall_flux", &
                 institution, contact_name, contact_email)
            call write_nc_file_annual(sir_ann, res, year, outpathname, &
-                fileroot_out, "snicefreez", "kg m-2 yr-1", "surface_snow_and_ice_refreezing_flux", &
+                fileroot_out, "snicefreez", "kg m-2 yr-1", "retained meltwater, fixed-fraction PMAX scheme (diagnostic; not an SMB closure term)", &
                 institution, contact_name, contact_email)
            end if
         end if
@@ -429,7 +429,7 @@ program gpdd
                 fileroot_out, "prsn", "kg m-2 s-1", "snowfall_flux", &
                 institution, contact_name, contact_email)
            call write_nc_file(sir, res, year, outpathname, &
-                fileroot_out, "snicefreez", "kg m-2 s-1", "surface_snow_and_ice_refreezing_flux", &
+                fileroot_out, "snicefreez", "kg m-2 s-1", "retained meltwater, fixed-fraction PMAX scheme (diagnostic; not an SMB closure term)", &
                 institution, contact_name, contact_email)
            end if
         else if (outputmode == 1) then
@@ -454,7 +454,7 @@ program gpdd
                 fileroot_out, "prsn", "kg m-2 yr-1", "snowfall_flux", &
                 institution, contact_name, contact_email)
            call write_nc_file(sir, res, year, outpathname, &
-                fileroot_out, "snicefreez", "kg m-2 yr-1", "surface_snow_and_ice_refreezing_flux", &
+                fileroot_out, "snicefreez", "kg m-2 yr-1", "retained meltwater, fixed-fraction PMAX scheme (diagnostic; not an SMB closure term)", &
                 institution, contact_name, contact_email)
            end if
         end if
