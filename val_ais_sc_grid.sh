@@ -16,8 +16,8 @@ source setenv.sh
 NCDUMP=$(dirname "${EBROOTNETCDFMINFORTRAN}")/../bin/ncdump || NCDUMP=ncdump
 PY=/cluster/projects/nn11016k/miniforge3/envs/nc/bin/python
 
-echo "== 1. Pull code (commit 90c77b8: pmax/seasonalcycle/x0/y0/grid_information) =="
-git pull origin main
+echo "== 1. Verify code version (repo updated outside the job; compute nodes cannot reach GitHub) =="
+git merge-base --is-ancestor 90c77b8 HEAD || { echo "ERROR: run dir missing commit 90c77b8 — update the clone first"; exit 1; }
 git log --oneline -1
 
 echo "== 2. Compile serial + MPI drivers =="
