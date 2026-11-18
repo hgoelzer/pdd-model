@@ -47,7 +47,7 @@ for nml in "$NML_HIST" "$NML_SSP"; do
 done
 case "$VARIANT" in
   std)   grep -q 'MARv3.14LC26/pr_ref' "$NML_HIST" || { echo "ERROR: std nml not using LC26 pr_ref"; exit 1; };;
-  prMAR) grep -q 'Forcing/MARv3.14/pr_ref' "$NML_HIST" || { echo "ERROR: prMAR nml not using raw pr_ref"; exit 1; };;
+  prMAR) grep -q 'pr_ref_MARv3.14-oli' "$NML_HIST" && grep -q 'sftgif_BM5' "$NML_HIST" || { echo "ERROR: prMAR nml not using oli raw pr_ref + BM5 mask"; exit 1; };;
 esac
 
 echo "== 2. Build serial driver (guarantees binary matches source) =="
@@ -114,7 +114,7 @@ for tag, root, yr in ROOTS:
         print(f"{tag} {yr} {v:5s}: max|new-arch| = {dmax:.3e} "
               f"{'OK' if ok else 'FAIL'}")
         fails += 0 if ok else 1
-    for v in ["prsn", "prra"] + (["acabf"] if STD else []):
+    for v in ["prsn", "prra", "acabf"]:
         dlt = new(v) - arc(v)
         dmax, dmean = abs(dlt).max(), abs(dlt.mean())
         ok = dmax < 1e-5 and dmean < 1e-12

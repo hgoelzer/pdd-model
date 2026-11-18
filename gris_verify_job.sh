@@ -105,7 +105,7 @@ for tag, root, y0, y1, _ in ROOTS:
                 fails.append(f"{v} {y} archive diff {dmax:.2e}")
             print(f"  {v:5s} {y}  max|diff| = {dmax:.3e} "
                   f"{'OK' if dmax == 0.0 else 'FAIL'}")
-        for v in ["prsn", "prra"] + (["acabf"] if STD else []):
+        for v in ["prsn", "prra", "acabf"]:
             dlt = new(v) - arc(v)
             dmax, dmean = abs(dlt).max(), abs(dlt.mean())
             if dmax >= 1e-5 or dmean >= 1e-12:
