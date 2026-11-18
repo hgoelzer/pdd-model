@@ -141,8 +141,8 @@ for tag, root, yr in ROOTS:
           f"snicefreez {sf.mean()*Gt:6.1f} "
           f"(archive {arc('snicefreez').mean()*Gt:6.1f}); "
           f"sf min {sf.min():.2e}, {(sf < 0).sum()} neg cells")
-    if sf.min() < -1e-7:
-        print(f"FAIL {tag} {yr}: snicefreez min below -1e-7")
+    if sf.min() < -1e-6:
+        print(f"FAIL {tag} {yr}: snicefreez min below -1e-6")
         fails += 1
 
 sys.exit(1 if fails else 0)

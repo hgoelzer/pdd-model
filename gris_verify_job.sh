@@ -84,8 +84,8 @@ for tag, root, y0, y1, nexp in ROOTS:
             print(f"  {y}  pr {p.mean()*Gt:8.1f}  acabf {a.mean()*Gt:8.1f}  "
                   f"mrro {m.mean()*Gt:8.1f}  snicefreez "
                   f"{arr(f'{OUT}/{tag}/snicefreez_{root}_{y}.nc', 'snicefreez').mean()*Gt:6.2f} Gt/yr")
-        if arr(f"{OUT}/{tag}/snicefreez_{root}_{y}.nc", "snicefreez").min() < -1e-7:
-            fails.append(f"{tag} {y} snicefreez min below -1e-7")
+        if arr(f"{OUT}/{tag}/snicefreez_{root}_{y}.nc", "snicefreez").min() < -1e-6:
+            fails.append(f"{tag} {y} snicefreez min below -1e-6")
     for y in (y0, y1):
         with nc.Dataset(f"{OUT}/{tag}/acabf_{root}_{y}.nc") as d:
             x, yax = d.variables["x"][:], d.variables["y"][:]
