@@ -51,6 +51,7 @@ case "$VARIANT" in
 esac
 
 echo "== 2. Build serial driver (guarantees binary matches source) =="
+mkdir -p obj
 make clean
 make gpdd_monthly_inout
 
