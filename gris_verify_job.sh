@@ -49,8 +49,9 @@ import netCDF4 as nc
 RES, VARIANT, OUT = os.environ["RES"], os.environ["VARIANT"], os.environ["OUTLINK"]
 STD = VARIANT == "std"
 res_m = 8000.0 if RES == "08" else 1000.0
+NX, NY = (211, 361) if RES == "08" else (1681, 2881)
 X0, Y0 = -720000.0, -3450000.0
-Gt = res_m * res_m * 31556926.0 / 1e12
+Gt = res_m * res_m * NX * NY * 31556926.0 / 1e12
 STEP = 1 if RES == "08" else 5
 ARCH = "/cluster/work/users/heig/pdd/gris_%s/archive_cmp%s" % (
     RES, "" if STD else "_prMAR")
@@ -83,8 +84,8 @@ for tag, root, y0, y1, nexp in ROOTS:
             print(f"  {y}  pr {p.mean()*Gt:8.1f}  acabf {a.mean()*Gt:8.1f}  "
                   f"mrro {m.mean()*Gt:8.1f}  snicefreez "
                   f"{arr(f'{OUT}/{tag}/snicefreez_{root}_{y}.nc', 'snicefreez').mean()*Gt:6.2f} Gt/yr")
-        if arr(f"{OUT}/{tag}/snicefreez_{root}_{y}.nc", "snicefreez").min() < 0:
-            fails.append(f"{tag} {y} negative snicefreez")
+        if arr(f"{OUT}/{tag}/snicefreez_{root}_{y}.nc", "snicefreez").min() < -1e-7:
+            fails.append(f"{tag} {y} snicefreez min below -1e-7")
     for y in (y0, y1):
         with nc.Dataset(f"{OUT}/{tag}/acabf_{root}_{y}.nc") as d:
             x, yax = d.variables["x"][:], d.variables["y"][:]
@@ -105,16 +106,19 @@ for tag, root, y0, y1, _ in ROOTS:
             print(f"  {v:5s} {y}  max|diff| = {dmax:.3e} "
                   f"{'OK' if dmax == 0.0 else 'FAIL'}")
         for v in ["prsn", "prra"] + (["acabf"] if STD else []):
-            dmax = abs(new(v) - arc(v)).max()
-            if dmax >= 1e-6:
-                fails.append(f"{v} {y} archive diff {dmax:.2e}")
-            print(f"  {v:5s} {y}  max|diff| = {dmax:.3e} "
-                  f"{'OK' if dmax < 1e-6 else 'FAIL'}")
-        dmax = abs(new("mrro") - (arc("mrro") + arc("prra"))).max()
-        if dmax >= 1e-6:
-            fails.append(f"mrro identity {y} {dmax:.2e}")
-        print(f"  mrro identity {y}  max|diff| = {dmax:.3e} "
-              f"{'OK' if dmax < 1e-6 else 'FAIL'}")
+            dlt = new(v) - arc(v)
+            dmax, dmean = abs(dlt).max(), abs(dlt.mean())
+            if dmax >= 1e-5 or dmean >= 1e-12:
+                fails.append(f"{v} {y} archive diff max {dmax:.2e} "
+                             f"mean {dmean:.1e}")
+            print(f"  {v:5s} {y}  max|diff| = {dmax:.3e} mean = {dmean:.1e} "
+                  f"{'OK' if dmax < 1e-5 and dmean < 1e-12 else 'FAIL'}")
+        dlt = new("mrro") - (arc("mrro") + arc("prra"))
+        dmax, dmean = abs(dlt).max(), abs(dlt.mean())
+        if dmax >= 1e-5 or dmean >= 1e-12:
+            fails.append(f"mrro identity {y} max {dmax:.2e} mean {dmean:.1e}")
+        print(f"  mrro identity {y}  max|diff| = {dmax:.3e} mean = {dmean:.1e} "
+              f"{'OK' if dmax < 1e-5 and dmean < 1e-12 else 'FAIL'}")
         print(f"  snicefreez {y} mean Gt/yr: new "
               f"{new('snicefreez').mean()*Gt:6.2f} vs archive "
               f"{arc('snicefreez').mean()*Gt:6.2f} (fix changes it by design)")

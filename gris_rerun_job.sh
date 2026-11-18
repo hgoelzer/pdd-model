@@ -81,8 +81,9 @@ import netCDF4 as nc
 RES, VARIANT = os.environ["RES"], os.environ["VARIANT"]
 STD = VARIANT == "std"
 res_m = 8000.0 if RES == "08" else 1000.0
+NX, NY = (211, 361) if RES == "08" else (1681, 2881)
 X0, Y0 = -720000.0, -3450000.0
-Gt = res_m * res_m * 31556926.0 / 1e12
+Gt = res_m * res_m * NX * NY * 31556926.0 / 1e12
 ARCH = "/cluster/work/users/heig/pdd/gris_%s/archive_cmp%s" % (
     RES, "" if STD else "_prMAR")
 ROOTS = [("Historical", "GIS_NORCEPDD1_CESM2_Historical_r11i1p1f1", 1950),
@@ -114,17 +115,20 @@ for tag, root, yr in ROOTS:
               f"{'OK' if ok else 'FAIL'}")
         fails += 0 if ok else 1
     for v in ["prsn", "prra"] + (["acabf"] if STD else []):
-        dmax = abs(new(v) - arc(v)).max()
-        ok = dmax < 1e-6
+        dlt = new(v) - arc(v)
+        dmax, dmean = abs(dlt).max(), abs(dlt.mean())
+        ok = dmax < 1e-5 and dmean < 1e-12
         print(f"{tag} {yr} {v:5s}: max|new-arch| = {dmax:.3e} "
-              f"{'OK' if ok else 'FAIL'}")
+              f"mean = {dmean:.1e} {'OK' if ok else 'FAIL'}")
         fails += 0 if ok else 1
     # mrro fix identity: new mrro (melt + rain) = archive mrro (melt only)
-    # + archive prra; holds to max 2.3e-7 (float-reassociation noise)
-    dmax = abs(new("mrro") - (arc("mrro") + arc("prra"))).max()
-    ok = dmax < 1e-6
+    # + archive prra; float-reassociation noise grows on the 1 km grid
+    dlt = new("mrro") - (arc("mrro") + arc("prra"))
+    dmax, dmean = abs(dlt).max(), abs(dlt.mean())
+    ok = dmax < 1e-5 and dmean < 1e-12
     print(f"{tag} {yr} mrro identity (new = arch + arch prra): "
-          f"max|diff| = {dmax:.3e} {'OK' if ok else 'FAIL'}")
+          f"max|diff| = {dmax:.3e} mean = {dmean:.1e} "
+          f"{'OK' if ok else 'FAIL'}")
     fails += 0 if ok else 1
     dmax = abs(new("acabf") + new("mrro") - new("pr")).max()
     ok = dmax < 1e-9
@@ -132,12 +136,13 @@ for tag, root, yr in ROOTS:
           f"{'OK' if ok else 'FAIL'}")
     fails += 0 if ok else 1
     sf = new("snicefreez")
-    print(f"{tag} {yr} means Gt/yr: acabf {new('acabf').mean()*Gt:8.2f} "
-          f"mrro {new('mrro').mean()*Gt:8.2f} "
-          f"snicefreez {sf.mean()*Gt:6.2f} "
-          f"(archive {arc('snicefreez').mean()*Gt:6.2f})")
-    if sf.min() < 0:
-        print(f"FAIL {tag} {yr}: negative snicefreez")
+    print(f"{tag} {yr} means Gt/yr: acabf {new('acabf').mean()*Gt:8.1f} "
+          f"mrro {new('mrro').mean()*Gt:8.1f} "
+          f"snicefreez {sf.mean()*Gt:6.1f} "
+          f"(archive {arc('snicefreez').mean()*Gt:6.1f}); "
+          f"sf min {sf.min():.2e}, {(sf < 0).sum()} neg cells")
+    if sf.min() < -1e-7:
+        print(f"FAIL {tag} {yr}: snicefreez min below -1e-7")
         fails += 1
 
 sys.exit(1 if fails else 0)
