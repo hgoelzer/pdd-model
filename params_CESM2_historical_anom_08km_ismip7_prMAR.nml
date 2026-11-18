@@ -1,0 +1,56 @@
+&config
+  ! ISMIP7 GrIS corrected rerun, prMAR variant (mrro = total runoff, sir =
+  ! retained meltwater; all other variables bit-identical to the original
+  ! SMBMIP submission). Identical to ..._08km_ismip7.nml except filename_prref
+  ! = raw (not Lindsey-Clark bias-corrected) MARv3.14 precipitation reference.
+  ! CESM2 historical 1950-2014, 8 km, all 9 vars, monthly, SMBMIP units.
+  outputmode = 0
+  outputvars = 0
+  fmode = 1
+  deflate_level = 9
+
+  inpathname_pr  = "./Forcing/CESM2/historical/pr_ratio"
+  inpathname_tas = "./Forcing/CESM2/historical/tas_anom"
+  fileroot_pr    = "pr_ratio_Amon_CESM2_historical_r11i1p1f1"
+  fileroot_tas   = "tas_Amon_CESM2_historical_r11i1p1f1"
+
+  year0        = 1950
+  nt           = 65
+  time_ref_year = 1850
+  fileroot_out = "GIS_NORCEPDD1_CESM2_Historical_r11i1p1f1"
+
+  ! Grid: 8 km ISMIP7 GrIS
+  nx         = 211
+  ny         = 361
+  res        = 8000.0
+  res_suffix = "i08000m"
+
+  ! Reference files (fmode=1): pr = raw MARv3.14 (prMAR variant)
+  filename_prref   = "Forcing/MARv3.14/pr_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc"
+  filename_tasref  = "Forcing/MARv3.14LC26/tas_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc"
+  filename_defmask = "Forcing/constant/sftgif_promice_08000m.nc"
+
+  outpathname = "./output_ismip7_prMAR/Historical"
+
+  institution   = "NORCE Research"
+  contact_name  = "Heiko Goelzer"
+  contact_email = "heig@norceresearch.no"
+
+  ! PDD physics parameters (production defaults, identical to submission)
+  ddfactorsnow = 0.00297
+  ddfactorice  = 0.00791
+  sigma        = 4.5
+  rainlimit    = 1.0
+
+  ! Retention: max fraction of monthly snowfall retained
+  ! (Janssens and Huybrechts 2000)
+  pmax = 0.3
+
+  ! Seasonal cycle: 1 = prescribed July-peak cycle (production configuration)
+  seasonalcycle = 1
+
+  ! Output grid: ISMIP6 GrIS (epsg:3413), production origins
+  x0 = -720000.0
+  y0 = -3450000.0
+  grid_information = "ISMIP6 grid, epsg:3413"
+/
