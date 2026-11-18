@@ -29,7 +29,7 @@
   ! (the prMAR submission used the uncorrected MAR refs for both)
   filename_prref   = "Forcing/MARv3.14/pr_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc"
   filename_tasref  = "Forcing/MARv3.14/tas_ref_MARv3.14-monthly-ERA5-1960-1989_08000m.nc"
-  filename_defmask = "Forcing/constant/sftgif_promice_08000m.nc"
+  filename_defmask = "Forcing_ismip7/constant/ice_mask_MARv3.14LC26_08000m.nc"
 
   outpathname = "./output_ismip7_prMAR/SSP370"
 
