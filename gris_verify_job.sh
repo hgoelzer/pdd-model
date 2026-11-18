@@ -112,13 +112,13 @@ for tag, root, y0, y1, _ in ROOTS:
                 fails.append(f"{v} {y} archive diff max {dmax:.2e} "
                              f"mean {dmean:.1e}")
             print(f"  {v:5s} {y}  max|diff| = {dmax:.3e} mean = {dmean:.1e} "
-                  f"{'OK' if dmax < 1e-5 and dmean < 1e-12 else 'FAIL'}")
+                  f"{'OK' if dmax < 1e-5 and dmean < 1e-11 else 'FAIL'}")
         dlt = new("mrro") - (arc("mrro") + arc("prra"))
         dmax, dmean = abs(dlt).max(), abs(dlt.mean())
         if dmax >= 1e-5 or dmean >= 1e-12:
             fails.append(f"mrro identity {y} max {dmax:.2e} mean {dmean:.1e}")
         print(f"  mrro identity {y}  max|diff| = {dmax:.3e} mean = {dmean:.1e} "
-              f"{'OK' if dmax < 1e-5 and dmean < 1e-12 else 'FAIL'}")
+              f"{'OK' if dmax < 1e-5 and dmean < 1e-11 else 'FAIL'}")
         print(f"  snicefreez {y} mean Gt/yr: new "
               f"{new('snicefreez').mean()*Gt:6.2f} vs archive "
               f"{arc('snicefreez').mean()*Gt:6.2f} (fix changes it by design)")

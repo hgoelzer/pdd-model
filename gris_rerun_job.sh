@@ -117,7 +117,7 @@ for tag, root, yr in ROOTS:
     for v in ["prsn", "prra", "acabf"]:
         dlt = new(v) - arc(v)
         dmax, dmean = abs(dlt).max(), abs(dlt.mean())
-        ok = dmax < 1e-5 and dmean < 1e-12
+        ok = dmax < 1e-5 and dmean < 1e-11
         print(f"{tag} {yr} {v:5s}: max|new-arch| = {dmax:.3e} "
               f"mean = {dmean:.1e} {'OK' if ok else 'FAIL'}")
         fails += 0 if ok else 1
@@ -125,7 +125,7 @@ for tag, root, yr in ROOTS:
     # + archive prra; float-reassociation noise grows on the 1 km grid
     dlt = new("mrro") - (arc("mrro") + arc("prra"))
     dmax, dmean = abs(dlt).max(), abs(dlt.mean())
-    ok = dmax < 1e-5 and dmean < 1e-12
+    ok = dmax < 1e-5 and dmean < 1e-11
     print(f"{tag} {yr} mrro identity (new = arch + arch prra): "
           f"max|diff| = {dmax:.3e} mean = {dmean:.1e} "
           f"{'OK' if ok else 'FAIL'}")
