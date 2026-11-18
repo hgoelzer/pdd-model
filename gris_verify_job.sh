@@ -12,9 +12,10 @@
 #   2. Cellwise SMB closure acabf = pr - mrro (every year at 8 km, every
 #      5th year at 1 km)
 #   3. Grid metadata: epsg:3413, origin (-720000, -3450000)
-#   4. Archive ground truth at 1950/2014/2015/2100: tas/pr/prsn/prra
-#      bit-exact, acabf identical (std only), mrro = arch mrro + arch prra
-#      (the fix identity); snicefreez/sir reported informatively
+#   4. Archive ground truth at 1950/2014/2015/2100: tas/pr bit-exact,
+#      prsn/prra/acabf identical to float-reassociation noise (<= 1e-6),
+#      mrro = arch mrro + arch prra (the fix identity); snicefreez reported
+#      informatively (its fix changes it by design)
 #   5. netCDF4 compression active in the new files
 # Comparison files are STAGED under /cluster/work/users/heig/pdd/gris_$RES/
 # archive_cmp(_prMAR) because the NS8002K NIRD mount is NOT available on
@@ -80,10 +81,10 @@ for tag, root, y0, y1, nexp in ROOTS:
             fails.append(f"{tag} {y} closure {err:.2e}")
         if y == y0 or y == y1 or (y - y0) % (10 * STEP) == 0:
             print(f"  {y}  pr {p.mean()*Gt:8.1f}  acabf {a.mean()*Gt:8.1f}  "
-                  f"mrro {m.mean()*Gt:8.1f}  sir "
-                  f"{arr(f'{OUT}/{tag}/sir_{root}_{y}.nc', 'sir').mean()*Gt:6.2f} Gt/yr")
-        if arr(f"{OUT}/{tag}/sir_{root}_{y}.nc", "sir").min() < 0:
-            fails.append(f"{tag} {y} negative sir")
+                  f"mrro {m.mean()*Gt:8.1f}  snicefreez "
+                  f"{arr(f'{OUT}/{tag}/snicefreez_{root}_{y}.nc', 'snicefreez').mean()*Gt:6.2f} Gt/yr")
+        if arr(f"{OUT}/{tag}/snicefreez_{root}_{y}.nc", "snicefreez").min() < 0:
+            fails.append(f"{tag} {y} negative snicefreez")
     for y in (y0, y1):
         with nc.Dataset(f"{OUT}/{tag}/acabf_{root}_{y}.nc") as d:
             x, yax = d.variables["x"][:], d.variables["y"][:]
@@ -97,23 +98,26 @@ for tag, root, y0, y1, _ in ROOTS:
     for y in sorted(CMP_YEARS & set(range(y0, y1 + 1))):
         new = lambda v: arr(f"{OUT}/{tag}/{v}_{root}_{y}.nc", v)
         arc = lambda v: arr(f"{ARCH}/{tag}/{v}_{root}_{y}.nc", v)
-        for v in ["tas", "pr", "prsn", "prra"]:
+        for v in ["tas", "pr"]:
             dmax = abs(new(v) - arc(v)).max()
             if dmax != 0.0:
                 fails.append(f"{v} {y} archive diff {dmax:.2e}")
             print(f"  {v:5s} {y}  max|diff| = {dmax:.3e} "
                   f"{'OK' if dmax == 0.0 else 'FAIL'}")
-        if STD:
-            dmax = abs(new("acabf") - arc("acabf")).max()
-            if dmax >= 1e-9:
-                fails.append(f"acabf {y} archive diff {dmax:.2e}")
-            print(f"  acabf {y}  max|diff| = {dmax:.3e} "
-                  f"{'OK' if dmax < 1e-9 else 'FAIL'}")
+        for v in ["prsn", "prra"] + (["acabf"] if STD else []):
+            dmax = abs(new(v) - arc(v)).max()
+            if dmax >= 1e-6:
+                fails.append(f"{v} {y} archive diff {dmax:.2e}")
+            print(f"  {v:5s} {y}  max|diff| = {dmax:.3e} "
+                  f"{'OK' if dmax < 1e-6 else 'FAIL'}")
         dmax = abs(new("mrro") - (arc("mrro") + arc("prra"))).max()
-        if dmax >= 1e-9:
+        if dmax >= 1e-6:
             fails.append(f"mrro identity {y} {dmax:.2e}")
         print(f"  mrro identity {y}  max|diff| = {dmax:.3e} "
-              f"{'OK' if dmax < 1e-9 else 'FAIL'}")
+              f"{'OK' if dmax < 1e-6 else 'FAIL'}")
+        print(f"  snicefreez {y} mean Gt/yr: new "
+              f"{new('snicefreez').mean()*Gt:6.2f} vs archive "
+              f"{arc('snicefreez').mean()*Gt:6.2f} (fix changes it by design)")
 
 # compression check: new files must be netCDF4/zlib
 f0 = f"{OUT}/Historical/{'acabf'}_{ROOTS[0][1]}_{1950}.nc"

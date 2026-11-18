@@ -37,7 +37,7 @@ cp -n $N/constant/sftgif_promice_01000m.nc $F/constant/
 
 echo "== 4. Archive comparison files (1950/2014/2015/2100, 6 vars) =="
 S=$N/Output/gris_01/CESM2_SSP370_r11i1p1f1
-for V in acabf mrro pr prra prsn tas; do
+for V in acabf mrro pr prra prsn tas snicefreez; do
     for Y in 1950 2014; do
         cp -n $S/${V}_GIS_NORCEPDD1_CESM2_Historical_r11i1p1f1_${Y}.nc \
               $W/archive_cmp/Historical/
