@@ -74,9 +74,12 @@ for tag, root, y0, y1 in ROOTS:
                 fails.append(f"{tag} {y} grid metadata")
                 print(f"FAIL {tag} {y} grid: {x[0]:.0f} {yax[0]:.0f} {gi}")
 
-# Ground truth: compare parameter-independent fields against the original
-# taj-era archive (same model input chain proven by the 1950 bit-identical
-# validation, job 1807140)
+# Ground truth: compare against the original taj-era archive (same model
+# input chain proven by the 1950 bit-identical validation, job 1807140).
+# pr is parameter- and cycle-independent -> must match bit-exactly.
+# prsn/prra depend on the temperature path through the Gaussian rain/snow
+# threshold (taj vs actual temps) -> small expected differences (<= ~1e-3);
+# gate instead on prsn + prra = pr holding against the archive as well.
 print("Archive comparison (field max |rerun - archive|):")
 for tag, root, y0, y1 in ROOTS:
     for y in (y0, y1):
@@ -86,10 +89,24 @@ for tag, root, y0, y1 in ROOTS:
             with nc.Dataset(f"{ARCH}/{tag}/{v}_{root}_{y}.nc") as da:
                 b = da.variables[v][:]
             dmax = abs(a - b).max().item()
-            ok = dmax < 1e-9
+            if v == "pr":
+                ok = dmax == 0.0
+            else:
+                ok = dmax < 1e-3
             print(f"  {v:5s} {y}  max|diff| = {dmax:.3e}  {'OK' if ok else 'FAIL'}")
             if not ok:
                 fails.append(f"{v} {y} archive diff {dmax:.2e}")
+        # partition closure against the archive: prsn + prra = pr on both sides
+        with nc.Dataset(f"{ARCH}/{tag}/pr_{root}_{y}.nc") as da:
+            pr_a = da.variables["pr"][:]
+        with nc.Dataset(f"{ARCH}/{tag}/prsn_{root}_{y}.nc") as da:
+            prsn_a = da.variables["prsn"][:]
+        with nc.Dataset(f"{ARCH}/{tag}/prra_{root}_{y}.nc") as da:
+            prra_a = da.variables["prra"][:]
+        err = abs(prsn_a + prra_a - pr_a).max().item()
+        print(f"  archive partition {y}: max|prsn+prra-pr| = {err:.3e}")
+        if err > 1e-9:
+            fails.append(f"archive partition {y} {err:.2e}")
 
 # Informative: archive 1950 vs rerun 1950 for the cycle-affected scalars
 root = ROOTS[0][1]
