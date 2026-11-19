@@ -70,7 +70,7 @@ fails = []
 res = {}
 for tag, root, years, nexp in PHASES:
     for base in ("output_sc08", "output_ismip7"):
-        n = len(glob.glob(f"{base}/{tag}/{root}_*.nc"))
+        n = len(glob.glob(f"{base}/{tag}/*_{root}_*.nc"))
         if n != nexp:
             fails.append(f"{base}/{tag}: {n} files != {nexp}")
             print(f"FAIL {base}/{tag}: {n} files, expected {nexp}")
@@ -84,7 +84,7 @@ for tag, root, years, nexp in PHASES:
                 fails.append(f"{base}/{tag} {y} closure "
                              f"{abs(acabf+mrro-pr):.2e}")
             smb[y] = acabf
-        res[base] = smb
+        res[(base, tag)] = smb
     # grid metadata on the new output
     with nc.Dataset(f"output_sc08/{tag}/acabf_{root}_{years[0]}.nc") as d:
         x = d.variables["x"][:]
@@ -98,18 +98,19 @@ for tag, root, years, nexp in PHASES:
             fails.append(f"{tag} grid metadata")
 
 for tag, root, years, _ in PHASES:
-    if "output_sc08" not in res or "output_ismip7" not in res:
+    if ("output_sc08", tag) not in res or \
+            ("output_ismip7", tag) not in res:
         continue
+    sc = res[("output_sc08", tag)]
+    tj = res[("output_ismip7", tag)]
     print(f"year  sc0_SMB  taj_SMB   delta ({tag})")
     for y in years:
-        d = res["output_sc08"][y] - res["output_ismip7"][y]
-        print(f"{y}  {res['output_sc08'][y]:8.2f} "
-              f"{res['output_ismip7'][y]:8.2f} {d:+8.2f}")
+        d = sc[y] - tj[y]
+        print(f"{y}  {sc[y]:8.2f} {tj[y]:8.2f} {d:+8.2f}")
     yrs = list(years)
-    m0 = sum(res["output_sc08"][y] for y in yrs) / len(yrs)
-    m1 = sum(res["output_ismip7"][y] for y in yrs) / len(yrs)
-    dmax = max(abs(res["output_sc08"][y] - res["output_ismip7"][y])
-               for y in yrs)
+    m0 = sum(sc[y] for y in yrs) / len(yrs)
+    m1 = sum(tj[y] for y in yrs) / len(yrs)
+    dmax = max(abs(sc[y] - tj[y]) for y in yrs)
     print(f"{tag} mean: sc0 {m0:.2f}  taj {m1:.2f}  "
           f"delta {m0-m1:+.2f} Gt/yr  max|yr delta| {dmax:.2f}")
 
